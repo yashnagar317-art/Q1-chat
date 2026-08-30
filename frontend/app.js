@@ -1,4 +1,3 @@
-```javascript
 /* =========================================================
    Q1 CHAT — APP.JS
    Supabase Auth + Profile Sync + Local Chat + Safety
