@@ -1,9 +1,13 @@
-```html
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta
+    name="description"
+    content="Q1 Chat — a simple and safe chat experience."
+  >
 
   <title>Q1 Chat</title>
 
@@ -12,94 +16,198 @@
 
 <body>
 
-  <!-- HEADER -->
+  <!-- =========================
+       HEADER
+       ========================= -->
   <header>
-    <b>Q1 <span>Chat</span></b>
 
-    <div>
-      <button id="settingsBtn" type="button">
+    <div class="brand">
+      <b>Q1 <span>Chat</span></b>
+      <small>Simple • Safe • Connected</small>
+    </div>
+
+    <div class="header-actions">
+      <button
+        id="settingsBtn"
+        type="button"
+        aria-label="Open settings"
+      >
         ⚙ Settings
       </button>
     </div>
+
   </header>
 
 
-  <!-- NAVIGATION -->
-  <nav>
-    <button class="active" data-filter="online" type="button">
-      Online
+  <!-- =========================
+       NAVIGATION
+       ========================= -->
+  <nav aria-label="Chat filters">
+
+    <button
+      class="active"
+      data-filter="online"
+      type="button"
+    >
+      🟢 Online
     </button>
 
-    <button data-filter="unread" type="button">
-      Unread
+    <button
+      data-filter="unread"
+      type="button"
+    >
+      🔵 Unread
     </button>
 
-    <button data-filter="recent" type="button">
-      Recent
+    <button
+      data-filter="recent"
+      type="button"
+    >
+      🕘 Recent
     </button>
 
-    <button data-filter="friends" type="button">
+    <button
+      data-filter="friends"
+      type="button"
+    >
       ♥ Friends
     </button>
+
   </nav>
 
 
-  <!-- MAIN CHAT APP -->
+  <!-- =========================
+       MAIN APPLICATION
+       ========================= -->
   <main>
 
-    <!-- USERS SIDEBAR -->
+    <!-- =====================
+         USERS SIDEBAR
+         ===================== -->
     <aside>
 
-      <input
-        id="search"
-        type="search"
-        placeholder="Search users..."
-        autocomplete="off"
-      >
+      <div class="sidebar-head">
 
-      <div class="note">
-        🛡️ Unsafe content and external promotional/contact links are blocked.
+        <h2>People</h2>
+
+        <span id="userCount">
+          Online
+        </span>
+
       </div>
 
-      <div id="users"></div>
+
+      <!-- SEARCH -->
+      <div class="search-wrap">
+
+        <span aria-hidden="true">
+          🔎
+        </span>
+
+        <input
+          id="search"
+          type="search"
+          placeholder="Search users..."
+          autocomplete="off"
+          maxlength="50"
+          aria-label="Search users"
+        >
+
+      </div>
+
+
+      <!-- SAFETY NOTICE -->
+      <div class="note">
+        🛡️
+        <span>
+          Unsafe content and external promotional/contact
+          links are blocked.
+        </span>
+      </div>
+
+
+      <!-- USERS -->
+      <div
+        id="users"
+        aria-live="polite"
+      ></div>
 
     </aside>
 
 
-    <!-- CHAT AREA -->
-    <section>
+    <!-- =====================
+         CHAT SECTION
+         ===================== -->
+    <section class="chat-section">
+
 
       <!-- CHAT HEADER -->
       <div class="chathead">
 
-        <div>
-          <strong id="chatName">
-            Select a person
-          </strong>
+        <div class="chat-user-info">
 
-          <small id="status">
-            Choose a chat
-          </small>
+          <div
+            id="chatAvatar"
+            class="chat-avatar"
+            aria-hidden="true"
+          >
+            ?
+          </div>
+
+          <div>
+
+            <strong id="chatName">
+              Select a person
+            </strong>
+
+            <small id="status">
+              Choose a chat
+            </small>
+
+          </div>
+
         </div>
 
-        <div>
-          <button id="block" type="button">
-            Block
+
+        <!-- CHAT ACTIONS -->
+        <div class="chat-actions">
+
+          <button
+            id="block"
+            type="button"
+            disabled
+          >
+            🚫 Block
           </button>
 
-          <button id="report" type="button">
-            Report
+          <button
+            id="report"
+            type="button"
+            disabled
+          >
+            ⚑ Report
           </button>
+
         </div>
 
       </div>
 
 
-      <!-- MESSAGES -->
-      <div id="messages" class="messages">
+      <!-- =====================
+           MESSAGES
+           ===================== -->
+      <div
+        id="messages"
+        class="messages"
+        aria-live="polite"
+        aria-label="Messages"
+      >
 
         <div class="welcome">
-          💬
+
+          <div class="welcome-icon">
+            💬
+          </div>
 
           <h2>
             Welcome to Q1 Chat
@@ -108,25 +216,54 @@
           <p>
             Select a person to start a conversation.
           </p>
+
+          <small>
+            Keep conversations respectful and never share
+            private information.
+          </small>
+
         </div>
 
       </div>
 
 
-      <!-- MESSAGE COMPOSER -->
+      <!-- =====================
+           MESSAGE COMPOSER
+           ===================== -->
       <div class="composer">
 
-        <textarea
-          id="input"
-          disabled
-          placeholder="Write a message..."
-          maxlength="2000"
-        ></textarea>
+        <div class="composer-box">
+
+          <textarea
+            id="input"
+            disabled
+            placeholder="Write a message..."
+            maxlength="2000"
+            rows="1"
+            autocomplete="off"
+            aria-label="Write a message"
+          ></textarea>
+
+          <div class="composer-bottom">
+
+            <small>
+              🔒 Keep it safe
+            </small>
+
+            <span id="charCount">
+              0/2000
+            </span>
+
+          </div>
+
+        </div>
+
 
         <button
           id="send"
           type="button"
           disabled
+          aria-label="Send message"
         >
           Send
         </button>
@@ -138,11 +275,20 @@
   </main>
 
 
-  <!-- SETTINGS DIALOG -->
+  <!-- =========================
+       SETTINGS DIALOG
+       ========================= -->
   <dialog id="settings">
 
-    <h3>
-      Settings
+    <div class="dialog-head">
+
+      <div>
+        <h3>⚙ Settings</h3>
+
+        <p>
+          Customize your Q1 Chat profile.
+        </p>
+      </div>
 
       <button
         type="button"
@@ -151,70 +297,108 @@
       >
         ×
       </button>
-    </h3>
+
+    </div>
 
 
-    <label>
+    <!-- DISPLAY NAME -->
+    <label for="displayName">
       Display name
 
       <input
         id="displayName"
         type="text"
         maxlength="40"
+        placeholder="Enter your name"
         autocomplete="nickname"
       >
     </label>
 
 
-    <label>
+    <!-- GENDER -->
+    <label for="gender">
       Gender
 
       <select id="gender">
-        <option value="boy">Boy</option>
-        <option value="girl">Girl</option>
-        <option value="other">Prefer not to say</option>
+
+        <option value="boy">
+          Boy
+        </option>
+
+        <option value="girl">
+          Girl
+        </option>
+
+        <option value="other">
+          Prefer not to say
+        </option>
+
       </select>
+
     </label>
 
 
-    <label>
+    <!-- AGE -->
+    <label for="age">
       Age group
 
       <select id="age">
-        <option value="13-17">13-17</option>
-        <option value="18+">18+</option>
+
+        <option value="13-17">
+          13-17
+        </option>
+
+        <option value="18+">
+          18+
+        </option>
+
       </select>
+
     </label>
 
 
+    <!-- BLOCKED USERS -->
     <button
       id="blocked"
       type="button"
+      class="secondary-btn"
     >
-      Blocked Users
+      🚫 Blocked Users
     </button>
 
 
+    <!-- SAVE -->
     <button
       id="save"
       type="button"
+      class="primary-btn"
     >
       Save settings
     </button>
 
 
-    <p>
-      For safety, never share passwords, addresses or private contact details.
+    <p class="dialog-safety">
+      🛡️ For safety, never share passwords, home addresses,
+      phone numbers or private contact details.
     </p>
 
   </dialog>
 
 
-  <!-- BLOCKED USERS DIALOG -->
+  <!-- =========================
+       BLOCKED USERS DIALOG
+       ========================= -->
   <dialog id="blockedDialog">
 
-    <h3>
-      Blocked Users
+    <div class="dialog-head">
+
+      <div>
+        <h3>🚫 Blocked Users</h3>
+
+        <p>
+          Manage people you have blocked.
+        </p>
+      </div>
 
       <button
         type="button"
@@ -223,22 +407,102 @@
       >
         ×
       </button>
-    </h3>
+
+    </div>
 
 
     <div id="blockedList">
-      <p>No blocked users.</p>
+
+      <p>
+        No blocked users.
+      </p>
+
     </div>
 
   </dialog>
 
 
-  <!-- SUPABASE -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- =========================
+       SUPABASE
+       ========================= -->
 
-  <!-- Q1 CHAT APP -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  ></script>
+
+
+  <!-- =========================
+       Q1 CHAT APP
+       ========================= -->
+
   <script src="app.js"></script>
+
+
+  <!-- =========================
+       SMALL UI HELPERS
+       ========================= -->
+
+  <script>
+
+    /* Character counter */
+    const messageInput =
+      document.getElementById("input");
+
+    const charCount =
+      document.getElementById("charCount");
+
+    if (messageInput && charCount) {
+
+      messageInput.addEventListener("input", () => {
+
+        charCount.textContent =
+          messageInput.value.length + "/2000";
+
+      });
+
+    }
+
+
+    /* Auto-grow textarea */
+    if (messageInput) {
+
+      messageInput.addEventListener("input", () => {
+
+        messageInput.style.height = "auto";
+
+        messageInput.style.height =
+          Math.min(messageInput.scrollHeight, 150) + "px";
+
+      });
+
+    }
+
+
+    /* Enable/disable chat action buttons */
+    document.addEventListener("click", () => {
+
+      const selected =
+        typeof state !== "undefined"
+          ? state.selected
+          : null;
+
+      const blockButton =
+        document.getElementById("block");
+
+      const reportButton =
+        document.getElementById("report");
+
+      if (blockButton) {
+        blockButton.disabled = !selected;
+      }
+
+      if (reportButton) {
+        reportButton.disabled = !selected;
+      }
+
+    });
+
+  </script>
 
 </body>
 </html>
-```
