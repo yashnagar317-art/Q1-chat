@@ -1,6 +1,6 @@
 /* =========================================================
    Q1 CHAT
-   Clean + Complete Supabase Version
+   Modern UI + Supabase Realtime
    ========================================================= */
 
 
@@ -14,7 +14,7 @@ const SUPABASE_KEY =
 
 
 if (!window.supabase) {
-  console.error("Q1 Chat: Supabase library was not loaded.");
+  console.error("Supabase browser client was not loaded.");
 }
 
 const supabaseClient =
@@ -31,12 +31,18 @@ let currentProfile = null;
 let selectedUser = null;
 
 let allUsers = [];
-let blockedUserIds = new Set();
 
-let messageChannel = null;
+let blockedUserIds =
+  new Set();
+
+let onlineUsers =
+  new Map();
+
+let unreadCounts =
+  new Map();
+
 let presenceChannel = null;
-
-let onlineUsers = new Map();
+let globalMessageChannel = null;
 
 let uiInitialized = false;
 
@@ -130,6 +136,7 @@ const profileViewContent =
 /* ================= ESCAPE HTML ================= */
 
 function escapeHTML(value) {
+
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -144,7 +151,8 @@ function escapeHTML(value) {
 function initTheme() {
 
   const saved =
-    localStorage.getItem("q1-theme") || "light";
+    localStorage.getItem("q1-theme") ||
+    "light";
 
   document.documentElement.setAttribute(
     "data-theme",
@@ -192,7 +200,7 @@ function toggleTheme() {
 }
 
 
-/* ================= CONNECTION STATUS ================= */
+/* ================= STATUS ================= */
 
 function setAuthStatus(
   text,
@@ -215,9 +223,13 @@ function setAuthStatus(
 
   if (type === "success") {
     dot.style.background = "#2db36c";
-  } else if (type === "error") {
+  }
+
+  else if (type === "error") {
     dot.style.background = "#d9534f";
-  } else {
+  }
+
+  else {
     dot.style.background = "#f0a000";
   }
 }
@@ -310,7 +322,7 @@ async function generateUniqueUsername() {
 
   for (let i = 0; i < 10; i++) {
 
-    const adjective =
+    const adj =
       adjectives[
         Math.floor(
           Math.random() *
@@ -327,7 +339,7 @@ async function generateUniqueUsername() {
       ];
 
     const username =
-      adjective + animal;
+      adj + animal;
 
     const {
       data,
@@ -344,7 +356,7 @@ async function generateUniqueUsername() {
 
     if (error) {
       console.warn(
-        "Username check failed:",
+        "Username check error:",
         error
       );
     }
@@ -410,15 +422,9 @@ function checkMessageSafety(text) {
   const normalized =
     text
       .toLowerCase()
-      .replace(
-        /\s+/g,
-        " "
-      );
+      .replace(/\s+/g, " ");
 
-  for (
-    const word
-    of badWords
-  ) {
+  for (const word of badWords) {
 
     const pattern =
       new RegExp(
@@ -426,11 +432,7 @@ function checkMessageSafety(text) {
         "i"
       );
 
-    if (
-      pattern.test(
-        normalized
-      )
-    ) {
+    if (pattern.test(normalized)) {
 
       return {
         safe: false,
@@ -441,16 +443,11 @@ function checkMessageSafety(text) {
   }
 
 
-  for (
-    const pattern
-    of spamPatterns
-  ) {
+  for (const pattern of spamPatterns) {
 
     pattern.lastIndex = 0;
 
-    if (
-      pattern.test(text)
-    ) {
+    if (pattern.test(text)) {
 
       return {
         safe: false,
@@ -495,6 +492,7 @@ async function loadBlockedUsers() {
     return;
   }
 
+
   blockedUserIds =
     new Set(
       (data || []).map(
@@ -503,8 +501,14 @@ async function loadBlockedUsers() {
       )
     );
 
+
   await renderBlockedUsers(
     data || []
+  );
+
+
+  renderUsers(
+    getFilteredUsers()
   );
 }
 
@@ -516,6 +520,7 @@ async function renderBlockedUsers(
   if (!blockedList) return;
 
   blockedList.innerHTML = "";
+
 
   if (!data.length) {
 
@@ -529,10 +534,7 @@ async function renderBlockedUsers(
   }
 
 
-  for (
-    const block
-    of data
-  ) {
+  for (const block of data) {
 
     const {
       data: user
@@ -547,6 +549,7 @@ async function renderBlockedUsers(
           block.blocked_id
         )
         .maybeSingle();
+
 
     if (!user) continue;
 
@@ -577,7 +580,7 @@ async function renderBlockedUsers(
 
     row
       .querySelector("button")
-      ?.addEventListener(
+      .addEventListener(
         "click",
         async () => {
 
@@ -650,8 +653,7 @@ async function blockSelectedUser() {
   if (error) {
 
     if (
-      error.code ===
-      "23505"
+      error.code === "23505"
     ) {
 
       showError(
@@ -660,9 +662,7 @@ async function blockSelectedUser() {
 
     } else {
 
-      console.error(
-        error
-      );
+      console.error(error);
 
       showError(
         "Could not block user."
@@ -691,6 +691,7 @@ async function unblockUser(
 
   if (!currentUser) return;
 
+
   const {
     error
   } =
@@ -709,9 +710,7 @@ async function unblockUser(
 
   if (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
     showError(
       "Could not unblock user."
@@ -788,6 +787,8 @@ function subscribeToPresence() {
     supabaseClient.removeChannel(
       presenceChannel
     );
+
+    presenceChannel = null;
   }
 
 
@@ -806,7 +807,6 @@ function subscribeToPresence() {
 
 
   presenceChannel
-
     .on(
       "presence",
       {
@@ -815,8 +815,8 @@ function subscribeToPresence() {
       () => {
 
         const state =
-          presenceChannel
-            .presenceState();
+          presenceChannel.presenceState();
+
 
         onlineUsers.clear();
 
@@ -838,6 +838,7 @@ function subscribeToPresence() {
 
             const presence =
               presences[0];
+
 
             onlineUsers.set(
               presence.user_id ||
@@ -862,22 +863,28 @@ function subscribeToPresence() {
       {
         event: "join"
       },
-      ({
-        newPresences
-      }) => {
+      ({ newPresences }) => {
 
         if (
           newPresences &&
           newPresences.length
         ) {
 
-          const presence =
-            newPresences[0];
+          for (
+            const presence
+            of newPresences
+          ) {
 
-          onlineUsers.set(
-            presence.user_id,
-            presence
-          );
+            if (
+              presence.user_id
+            ) {
+
+              onlineUsers.set(
+                presence.user_id,
+                presence
+              );
+            }
+          }
         }
 
 
@@ -895,9 +902,7 @@ function subscribeToPresence() {
       {
         event: "leave"
       },
-      ({
-        leftPresences
-      }) => {
+      ({ leftPresences }) => {
 
         if (
           leftPresences &&
@@ -909,9 +914,14 @@ function subscribeToPresence() {
             of leftPresences
           ) {
 
-            onlineUsers.delete(
+            if (
               presence.user_id
-            );
+            ) {
+
+              onlineUsers.delete(
+                presence.user_id
+              );
+            }
           }
         }
 
@@ -934,7 +944,6 @@ function subscribeToPresence() {
         ) {
 
           await presenceChannel.track({
-
             user_id:
               currentUser.id,
 
@@ -1061,6 +1070,7 @@ async function loadOrCreateProfile() {
   currentProfile =
     createdProfile;
 
+
   fillSettings();
 }
 
@@ -1095,14 +1105,12 @@ async function saveSettings() {
 
 
   const displayName =
-    displayNameInput?.value
-      .trim() ||
+    displayNameInput.value.trim() ||
     "Q1 User";
 
 
   const gender =
-    genderInput?.value ||
-    "other";
+    genderInput.value;
 
 
   const {
@@ -1129,9 +1137,7 @@ async function saveSettings() {
 
   if (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
     showError(
       "Could not save settings."
@@ -1189,9 +1195,7 @@ async function loadUsers() {
 
   if (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
     showError(
       "Could not load people."
@@ -1211,7 +1215,7 @@ async function loadUsers() {
 }
 
 
-/* ================= FILTERS ================= */
+/* ================= FILTER ================= */
 
 function getFilteredUsers() {
 
@@ -1223,8 +1227,7 @@ function getFilteredUsers() {
     searchInput
       ?.value
       .trim()
-      .toLowerCase() ||
-    "";
+      .toLowerCase() || "";
 
 
   if (query) {
@@ -1271,20 +1274,6 @@ function getFilteredUsers() {
   }
 
 
-  /*
-    Recent:
-    newest profiles first.
-
-    Friends:
-    currently shows all users
-    until a friends table is added.
-
-    Unread:
-    currently shows all users
-    until unread tracking is added.
-  */
-
-
   if (
     currentFilter ===
     "recent"
@@ -1305,6 +1294,66 @@ function getFilteredUsers() {
   return users;
 }
 
+
+/* ================= UNREAD ================= */
+
+function getUnreadCount(
+  userId
+) {
+
+  return (
+    unreadCounts.get(
+      userId
+    ) || 0
+  );
+}
+
+
+function clearUnread(
+  userId
+) {
+
+  unreadCounts.delete(
+    userId
+  );
+
+  renderUsers(
+    getFilteredUsers()
+  );
+}
+
+
+function addUnread(
+  userId
+) {
+
+  if (
+    !userId ||
+    userId === currentUser?.id
+  ) {
+    return;
+  }
+
+
+  const current =
+    getUnreadCount(
+      userId
+    );
+
+
+  unreadCounts.set(
+    userId,
+    current + 1
+  );
+
+
+  renderUsers(
+    getFilteredUsers()
+  );
+}
+
+
+/* ================= RENDER USERS ================= */
 
 function renderUsers(
   users
@@ -1408,19 +1457,22 @@ function renderUsers(
 
 
       const gender =
-        [
-          "boy",
-          "girl",
-          "other"
-        ].includes(
-          user.gender
-        )
+        ["boy", "girl", "other"]
+          .includes(
+            user.gender
+          )
           ? user.gender
           : "other";
 
 
       const isOnline =
         getOnlineStatus(
+          user.id
+        );
+
+
+      const unread =
+        getUnreadCount(
           user.id
         );
 
@@ -1433,25 +1485,36 @@ function renderUsers(
           )}
         </div>
 
+
         <div class="info">
 
           <strong>
             ${escapeHTML(name)}
           </strong>
 
+
           <div class="preview">
+
             @${escapeHTML(
               user.username ||
               "user"
             )}
+
           </div>
 
         </div>
 
-        <span class="status-indicator">
-          ${isOnline
-            ? "🟢"
-            : "⚫"}
+
+        <span
+          class="status-indicator"
+        >
+          ${
+            unread > 0
+              ? `<span class="unread-badge">${unread}</span>`
+              : isOnline
+                ? "🟢"
+                : "⚫"
+          }
         </span>
 
       `;
@@ -1495,6 +1558,11 @@ async function selectUser(
     user;
 
 
+  clearUnread(
+    user.id
+  );
+
+
   document.body.classList.add(
     "chat-open"
   );
@@ -1515,13 +1583,10 @@ async function selectUser(
 
 
   const gender =
-    [
-      "boy",
-      "girl",
-      "other"
-    ].includes(
-      user.gender
-    )
+    ["boy", "girl", "other"]
+      .includes(
+        user.gender
+      )
       ? user.gender
       : "other";
 
@@ -1579,14 +1644,12 @@ async function selectUser(
 
   updateSelectedUserStatus();
 
-  subscribeToMessages();
-
 
   messageInput?.focus();
 }
 
 
-/* ================= MESSAGES ================= */
+/* ================= LOAD MESSAGES ================= */
 
 async function loadMessages() {
 
@@ -1625,6 +1688,7 @@ async function loadMessages() {
         </div>
 
       </div>
+
     `;
 
     return;
@@ -1661,9 +1725,7 @@ async function loadMessages() {
 
   if (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
     showError(
       "Could not load messages."
@@ -1721,6 +1783,7 @@ function renderMessages(
         </div>
 
       </div>
+
     `;
 
     return;
@@ -1790,7 +1853,7 @@ function renderMessages(
 }
 
 
-/* ================= SEND ================= */
+/* ================= SEND MESSAGE ================= */
 
 async function sendMessage() {
 
@@ -1817,8 +1880,7 @@ async function sendMessage() {
 
 
   const text =
-    messageInput?.value
-      .trim();
+    messageInput.value.trim();
 
 
   if (!text) {
@@ -1827,8 +1889,7 @@ async function sendMessage() {
 
 
   if (
-    text.length >
-    2000
+    text.length > 2000
   ) {
 
     showError(
@@ -1856,10 +1917,8 @@ async function sendMessage() {
   }
 
 
-  if (sendButton) {
-    sendButton.disabled =
-      true;
-  }
+  sendButton.disabled =
+    true;
 
 
   const {
@@ -1875,22 +1934,17 @@ async function sendMessage() {
         receiver_id:
           selectedUser.id,
 
-        text:
-          text
+        text
       });
 
 
-  if (sendButton) {
-    sendButton.disabled =
-      false;
-  }
+  sendButton.disabled =
+    false;
 
 
   if (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
     showError(
       "Message could not be sent."
@@ -1907,6 +1961,13 @@ async function sendMessage() {
   updateCharCount();
 
 
+  /*
+    Do NOT depend only on realtime
+    for our own sent message.
+    Load immediately so it appears
+    without waiting.
+  */
+
   await loadMessages();
 
 
@@ -1914,76 +1975,199 @@ async function sendMessage() {
 }
 
 
-/* ================= REALTIME MESSAGES ================= */
+/* =========================================================
+   GLOBAL REALTIME MESSAGE SYSTEM
+   =========================================================
 
-function subscribeToMessages() {
+   IMPORTANT:
 
-  if (
-    !currentUser ||
-    !selectedUser
-  ) {
+   Old version subscribed only to the currently selected
+   chat.
+
+   This version subscribes ONCE to the messages table.
+
+   Therefore:
+
+   • New incoming messages are detected immediately.
+   • No outside click is required.
+   • If the current chat is open, it refreshes automatically.
+   • If another user sends a message, unread count increases.
+   ========================================================= */
+
+function subscribeToGlobalMessages() {
+
+  if (!currentUser) {
     return;
   }
 
 
-  if (messageChannel) {
+  if (globalMessageChannel) {
 
     supabaseClient.removeChannel(
-      messageChannel
+      globalMessageChannel
     );
 
-    messageChannel =
+    globalMessageChannel =
       null;
   }
 
 
-  messageChannel =
+  globalMessageChannel =
     supabaseClient.channel(
-      `q1-chat-${currentUser.id}-${selectedUser.id}`
+      `q1-global-messages-${currentUser.id}`
     );
 
 
-  messageChannel.on(
-
+  globalMessageChannel.on(
     "postgres_changes",
-
     {
       event: "INSERT",
       schema: "public",
       table: "messages"
     },
-
     async payload => {
 
       const message =
         payload.new;
 
 
-      const relevant =
-        (
-          message.sender_id ===
-            currentUser.id &&
+      if (!message) {
+        return;
+      }
+
+
+      /*
+        Only care about messages involving
+        the currently logged-in user.
+      */
+
+      const isIncoming =
+        message.receiver_id ===
+        currentUser.id;
+
+
+      const isOutgoing =
+        message.sender_id ===
+        currentUser.id;
+
+
+      if (
+        !isIncoming &&
+        !isOutgoing
+      ) {
+        return;
+      }
+
+
+      /*
+        OUTGOING MESSAGE
+
+        If we sent the message from this
+        browser, refresh current chat.
+      */
+
+      if (isOutgoing) {
+
+        if (
+          selectedUser &&
           message.receiver_id ===
             selectedUser.id
-        ) ||
-        (
-          message.sender_id ===
-            selectedUser.id &&
-          message.receiver_id ===
-            currentUser.id
-        );
+        ) {
 
+          await loadMessages();
+        }
 
-      if (relevant) {
-
-        await loadMessages();
+        return;
       }
+
+
+      /*
+        INCOMING MESSAGE
+      */
+
+
+      /*
+        If the received message belongs
+        to the chat currently open:
+        show it immediately.
+      */
+
+      if (
+        selectedUser &&
+        message.sender_id ===
+          selectedUser.id
+      ) {
+
+        if (
+          !isUserBlocked(
+            message.sender_id
+          )
+        ) {
+
+          await loadMessages();
+
+          /*
+            Make sure user can see
+            the newest message.
+          */
+
+          scrollMessagesToBottom();
+        }
+
+        return;
+      }
+
+
+      /*
+        Otherwise the user is not currently
+        viewing that conversation.
+
+        Increase unread count.
+      */
+
+      if (
+        !isUserBlocked(
+          message.sender_id
+        )
+      ) {
+
+        addUnread(
+          message.sender_id
+        );
+      }
+
+
+      /*
+        Optional browser notification.
+        It only works if permission has
+        already been granted.
+      */
+
+      showBrowserNotification(
+        message
+      );
     }
   );
 
 
-  messageChannel.subscribe(
+  globalMessageChannel.subscribe(
     status => {
+
+      console.log(
+        "Q1 message realtime:",
+        status
+      );
+
+
+      if (
+        status === "SUBSCRIBED"
+      ) {
+
+        console.log(
+          "✅ Q1 realtime connected"
+        );
+      }
+
 
       if (
         status ===
@@ -1993,12 +2177,105 @@ function subscribeToMessages() {
       ) {
 
         console.warn(
-          "Realtime message error:",
+          "⚠️ Q1 realtime connection:",
           status
         );
       }
     }
   );
+}
+
+
+/* ================= BROWSER NOTIFICATION ================= */
+
+function showBrowserNotification(
+  message
+) {
+
+  /*
+    Never request permission automatically.
+    Browser permission must be user initiated.
+  */
+
+  if (
+    typeof Notification ===
+      "undefined"
+  ) {
+    return;
+  }
+
+
+  if (
+    Notification.permission !==
+    "granted"
+  ) {
+    return;
+  }
+
+
+  const sender =
+    allUsers.find(
+      user =>
+        user.id ===
+        message.sender_id
+    );
+
+
+  const name =
+    sender?.display_name ||
+    sender?.username ||
+    "Q1 User";
+
+
+  try {
+
+    new Notification(
+      `New message from ${name}`,
+      {
+        body:
+          "You have a new Q1 Chat message."
+      }
+    );
+
+  } catch (error) {
+
+    console.warn(
+      "Notification error:",
+      error
+    );
+  }
+}
+
+
+/* ================= NOTIFICATION PERMISSION ================= */
+
+async function requestNotificationPermission() {
+
+  if (
+    typeof Notification ===
+      "undefined"
+  ) {
+    return;
+  }
+
+
+  if (
+    Notification.permission ===
+      "default"
+  ) {
+
+    try {
+
+      await Notification.requestPermission();
+
+    } catch (error) {
+
+      console.warn(
+        "Notification permission error:",
+        error
+      );
+    }
+  }
 }
 
 
@@ -2031,13 +2308,10 @@ function showProfileView(
 
 
   const gender =
-    [
-      "boy",
-      "girl",
-      "other"
-    ].includes(
-      user.gender
-    )
+    ["boy", "girl", "other"]
+      .includes(
+        user.gender
+      )
       ? user.gender
       : "other";
 
@@ -2052,15 +2326,19 @@ function showProfileView(
 
     <div class="profile-view">
 
-      <div class="profile-avatar ${gender}">
+      <div
+        class="profile-avatar ${gender}"
+      >
         ${escapeHTML(
           firstLetter
         )}
       </div>
 
+
       <h3>
         ${escapeHTML(name)}
       </h3>
+
 
       <p>
         @${escapeHTML(
@@ -2068,6 +2346,7 @@ function showProfileView(
           "user"
         )}
       </p>
+
 
       <p>
         ${
@@ -2078,6 +2357,7 @@ function showProfileView(
       </p>
 
     </div>
+
   `;
 
 
@@ -2139,8 +2419,19 @@ function scrollMessagesToBottom() {
   }
 
 
-  messagesContainer.scrollTop =
-    messagesContainer.scrollHeight;
+  /*
+    requestAnimationFrame makes sure
+    the DOM has finished rendering before
+    scrolling.
+  */
+
+  requestAnimationFrame(
+    () => {
+
+      messagesContainer.scrollTop =
+        messagesContainer.scrollHeight;
+    }
+  );
 }
 
 
@@ -2155,7 +2446,7 @@ function openDialog(
 
   if (
     typeof dialog.showModal ===
-    "function"
+      "function"
   ) {
 
     if (!dialog.open) {
@@ -2181,7 +2472,7 @@ function closeDialog(
 
   if (
     typeof dialog.close ===
-    "function"
+      "function"
   ) {
 
     if (dialog.open) {
@@ -2197,7 +2488,7 @@ function closeDialog(
 }
 
 
-/* ================= FEEDBACK ================= */
+/* ================= ERROR ================= */
 
 function showError(
   message
@@ -2261,19 +2552,6 @@ function showSuccess(
 }
 
 
-/* ================= MOBILE BACK ================= */
-
-window.addEventListener(
-  "popstate",
-  () => {
-
-    document.body.classList.remove(
-      "chat-open"
-    );
-  }
-);
-
-
 /* ================= UI ================= */
 
 function setupUI() {
@@ -2287,7 +2565,7 @@ function setupUI() {
     true;
 
 
-  /* Search */
+  /* SEARCH */
 
   searchInput?.addEventListener(
     "input",
@@ -2295,7 +2573,7 @@ function setupUI() {
   );
 
 
-  /* Send */
+  /* SEND */
 
   sendButton?.addEventListener(
     "click",
@@ -2303,7 +2581,7 @@ function setupUI() {
   );
 
 
-  /* Enter */
+  /* ENTER */
 
   messageInput?.addEventListener(
     "keydown",
@@ -2323,7 +2601,7 @@ function setupUI() {
   );
 
 
-  /* Character count */
+  /* CHARACTER COUNT */
 
   messageInput?.addEventListener(
     "input",
@@ -2331,7 +2609,7 @@ function setupUI() {
   );
 
 
-  /* Settings */
+  /* SETTINGS */
 
   settingsButton?.addEventListener(
     "click",
@@ -2363,7 +2641,7 @@ function setupUI() {
   );
 
 
-  /* Theme */
+  /* THEME */
 
   themeToggle?.addEventListener(
     "click",
@@ -2371,7 +2649,7 @@ function setupUI() {
   );
 
 
-  /* Block */
+  /* BLOCK */
 
   blockButton?.addEventListener(
     "click",
@@ -2379,7 +2657,7 @@ function setupUI() {
   );
 
 
-  /* Blocked */
+  /* BLOCKED USERS */
 
   blockedButton?.addEventListener(
     "click",
@@ -2405,7 +2683,7 @@ function setupUI() {
   );
 
 
-  /* Profile */
+  /* PROFILE */
 
   chatAvatar?.addEventListener(
     "click",
@@ -2432,7 +2710,7 @@ function setupUI() {
   );
 
 
-  /* Filters */
+  /* FILTERS */
 
   document
     .querySelectorAll(
@@ -2475,7 +2753,7 @@ function setupUI() {
     );
 
 
-  /* Report */
+  /* REPORT */
 
   reportButton?.addEventListener(
     "click",
@@ -2491,10 +2769,27 @@ function setupUI() {
       );
     }
   );
+
+
+  /*
+    Browser notification permission.
+
+    We request it only when the user clicks
+    somewhere in the UI, not automatically
+    during page load.
+  */
+
+  document.addEventListener(
+    "click",
+    requestNotificationPermission,
+    {
+      once: true
+    }
+  );
 }
 
 
-/* ================= START ================= */
+/* ================= START Q1 CHAT ================= */
 
 async function startQ1Chat() {
 
@@ -2505,10 +2800,18 @@ async function startQ1Chat() {
     setupUI();
 
 
-    /*
-      No "Add Supabase key" screen anymore.
-      The key is already configured above.
-    */
+    if (
+      !SUPABASE_URL ||
+      !SUPABASE_KEY
+    ) {
+
+      setAuthStatus(
+        "Add Supabase key",
+        "error"
+      );
+
+      return;
+    }
 
 
     setAuthStatus(
@@ -2516,13 +2819,15 @@ async function startQ1Chat() {
     );
 
 
+    /*
+      Check existing session first.
+    */
+
     const {
       data: sessionData,
       error: sessionError
     } =
-      await supabaseClient
-        .auth
-        .getSession();
+      await supabaseClient.auth.getSession();
 
 
     if (sessionError) {
@@ -2531,23 +2836,25 @@ async function startQ1Chat() {
 
 
     if (
-      sessionData
-        .session
-        ?.user
+      sessionData.session?.user
     ) {
 
       currentUser =
-        sessionData
-          .session
-          .user;
+        sessionData.session.user;
 
-    } else {
+    }
+
+    else {
+
+      /*
+        Anonymous login.
+      */
 
       if (
         typeof supabaseClient
           .auth
           .signInAnonymously ===
-        "function"
+          "function"
       ) {
 
         const {
@@ -2567,7 +2874,9 @@ async function startQ1Chat() {
         currentUser =
           data?.user;
 
-      } else {
+      }
+
+      else {
 
         throw new Error(
           "Anonymous auth is not enabled."
@@ -2590,18 +2899,38 @@ async function startQ1Chat() {
     );
 
 
+    /*
+      Load everything.
+    */
+
     await loadOrCreateProfile();
 
     await loadBlockedUsers();
 
     await loadUsers();
 
+
+    /*
+      IMPORTANT:
+      These subscriptions stay alive
+      for the whole session.
+    */
+
     subscribeToPresence();
+
+    subscribeToGlobalMessages();
+
 
     updateCharCount();
 
 
-  } catch (error) {
+    console.log(
+      "✅ Q1 Chat started successfully"
+    );
+
+  }
+
+  catch (error) {
 
     console.error(
       "Q1 startup error:",
@@ -2624,60 +2953,76 @@ async function startQ1Chat() {
 
 /* ================= AUTH STATE ================= */
 
-supabaseClient
-  .auth
-  .onAuthStateChange(
-    async (
-      _event,
-      session
-    ) => {
+supabaseClient.auth.onAuthStateChange(
+  async (
+    _event,
+    session
+  ) => {
 
-      if (!session?.user) {
-        return;
-      }
+    if (!session?.user) {
+      return;
+    }
 
 
-      if (
-        currentUser &&
-        currentUser.id ===
-          session.user.id
-      ) {
-        return;
-      }
+    if (
+      currentUser &&
+      currentUser.id ===
+        session.user.id
+    ) {
+      return;
+    }
 
 
-      currentUser =
-        session.user;
+    currentUser =
+      session.user;
 
 
-      setAuthStatus(
-        "Connected",
-        "success"
+    setAuthStatus(
+      "Connected",
+      "success"
+    );
+
+
+    try {
+
+      await loadOrCreateProfile();
+
+      await loadBlockedUsers();
+
+      await loadUsers();
+
+      subscribeToPresence();
+
+      subscribeToGlobalMessages();
+
+    }
+
+    catch (error) {
+
+      console.error(
+        error
       );
 
 
-      try {
-
-        await loadOrCreateProfile();
-
-        await loadBlockedUsers();
-
-        await loadUsers();
-
-        subscribeToPresence();
-
-      } catch (error) {
-
-        console.error(
-          error
-        );
-
-        showError(
-          "Could not load your profile."
-        );
-      }
+      showError(
+        "Could not load your profile."
+      );
     }
-  );
+  }
+);
+
+
+/* ================= MOBILE BACK ================= */
+
+window.addEventListener(
+  "popstate",
+  () => {
+
+    document.body.classList.remove(
+      "chat-open"
+    );
+  }
+);
 
 
 /* ================= CLEANUP ================= */
@@ -2691,14 +3036,22 @@ window.addEventListener(
       supabaseClient.removeChannel(
         presenceChannel
       );
+
+      presenceChannel =
+        null;
     }
 
 
-    if (messageChannel) {
+    if (
+      globalMessageChannel
+    ) {
 
       supabaseClient.removeChannel(
-        messageChannel
+        globalMessageChannel
       );
+
+      globalMessageChannel =
+        null;
     }
   }
 );
@@ -2720,3 +3073,4 @@ if (
 
   startQ1Chat();
 }
+```
