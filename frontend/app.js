@@ -1,6 +1,11 @@
 /* =========================================================
-   Q1 CHAT — CLEAN APP.JS
-   Supabase + Realtime + Friends + Private Chat
+   Q1 CHAT — COMPLETE CLEAN APP.JS
+   Matches the supplied HTML IDs exactly
+   ========================================================= */
+
+
+/* =========================================================
+   SUPABASE
    ========================================================= */
 
 const SUPABASE_URL =
@@ -10,14 +15,11 @@ const SUPABASE_KEY =
   "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
 
 
-/* =========================================================
-   SUPABASE
-   ========================================================= */
-
 if (!window.supabase) {
-  console.error("Supabase library was not loaded.");
+  console.error("Supabase library not loaded.");
   throw new Error("Supabase library is missing.");
 }
+
 
 const supabaseClient =
   window.supabase.createClient(
@@ -35,18 +37,18 @@ let currentProfile = null;
 let selectedUser = null;
 
 let allUsers = [];
-let friendIds = new Set();
+let allFriends = [];
+
 let blockedUserIds = new Set();
-let onlineUsers = new Map();
+let onlineUsers = new Set();
 let unreadCounts = new Map();
 
 let presenceChannel = null;
 let messageChannel = null;
-let friendChannel = null;
 
 let currentFilter = "online";
-let uiInitialized = false;
 let appStarted = false;
+let uiReady = false;
 
 
 /* =========================================================
@@ -159,28 +161,48 @@ function getUserName(user) {
 
 
 function getInitial(user) {
+  const name =
+    getUserName(user).trim();
+
   return (
-    getUserName(user)
-      .trim()
-      .charAt(0)
-      .toUpperCase() || "Q"
+    name.charAt(0).toUpperCase() ||
+    "Q"
   );
 }
 
 
 function getGender(user) {
-  return ["boy", "girl", "other"].includes(
-    user?.gender
-  )
-    ? user.gender
-    : "other";
+  if (
+    user?.gender === "boy" ||
+    user?.gender === "girl"
+  ) {
+    return user.gender;
+  }
+
+  return "other";
+}
+
+
+function isOnline(userId) {
+  return onlineUsers.has(userId);
 }
 
 
 function formatTime(timestamp) {
   if (!timestamp) return "";
 
-  return new Date(timestamp).toLocaleTimeString(
+  const date =
+    new Date(timestamp);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return date.toLocaleTimeString(
     [],
     {
       hour: "2-digit",
@@ -191,32 +213,56 @@ function formatTime(timestamp) {
 
 
 function showError(message) {
-  console.error("Q1:", message);
+  console.error(
+    "Q1:",
+    message
+  );
 
   if (!chatStatus) return;
+
+  const old =
+    chatStatus.textContent;
 
   chatStatus.textContent =
     "❌ " + message;
 
   setTimeout(() => {
-    if (selectedUser) {
-      updateSelectedUserStatus();
+    if (
+      selectedUser &&
+      chatStatus
+    ) {
+      updateChatStatus();
+    } else if (chatStatus) {
+      chatStatus.textContent =
+        old || "Ready";
     }
   }, 3000);
 }
 
 
 function showSuccess(message) {
-  console.log("Q1:", message);
+  console.log(
+    "Q1:",
+    message
+  );
 
   if (!chatStatus) return;
+
+  const old =
+    chatStatus.textContent;
 
   chatStatus.textContent =
     "✓ " + message;
 
   setTimeout(() => {
-    if (selectedUser) {
-      updateSelectedUserStatus();
+    if (
+      selectedUser &&
+      chatStatus
+    ) {
+      updateChatStatus();
+    } else if (chatStatus) {
+      chatStatus.textContent =
+        old || "Ready";
     }
   }, 2500);
 }
@@ -227,16 +273,19 @@ function showSuccess(message) {
    ========================================================= */
 
 function initTheme() {
-  const theme =
-    localStorage.getItem("q1-theme") ||
-    "light";
+  const savedTheme =
+    localStorage.getItem(
+      "q1-theme"
+    ) || "light";
 
   document.documentElement.setAttribute(
     "data-theme",
-    theme
+    savedTheme
   );
 
-  updateThemeButton(theme);
+  updateThemeButton(
+    savedTheme
+  );
 }
 
 
@@ -307,7 +356,7 @@ function setAuthStatus(
 
 
 /* =========================================================
-   USERNAME
+   PROFILE
    ========================================================= */
 
 const adjectives = [
@@ -324,23 +373,18 @@ const adjectives = [
   "Cosmic",
   "Golden",
   "Silver",
-  "Rainbow",
-  "Thunder",
-  "Frost",
   "Ocean",
+  "Forest",
   "Mystic",
   "Quantum",
   "Nova",
   "Stellar",
-  "Crystal",
-  "Harmony",
-  "Blaze",
-  "Echo",
-  "Spark"
+  "Crystal"
 ];
 
 
 const animals = [
+  "Griffin",
   "Fox",
   "Panda",
   "Tiger",
@@ -355,25 +399,20 @@ const animals = [
   "Deer",
   "Rabbit",
   "Bear",
-  "Cheetah",
   "Dolphin",
-  "Whale",
-  "Shark",
-  "Swan",
-  "Butterfly",
   "Penguin",
   "Otter",
-  "Lynx",
-  "Jaguar",
-  "Panther",
   "Hawk",
-  "Peacock",
   "Koala"
 ];
 
 
-async function generateUniqueUsername() {
-  for (let i = 0; i < 10; i++) {
+async function generateUsername() {
+  for (
+    let attempt = 0;
+    attempt < 10;
+    attempt++
+  ) {
     const adjective =
       adjectives[
         Math.floor(
@@ -393,76 +432,35 @@ async function generateUniqueUsername() {
     const username =
       adjective + animal;
 
-    const { data } =
+    const {
+      data,
+      error
+    } =
       await supabaseClient
         .from("profiles")
         .select("id")
-        .eq("username", username)
+        .eq(
+          "username",
+          username
+        )
         .maybeSingle();
 
-    if (!data) {
+    if (
+      !error &&
+      !data
+    ) {
       return username;
     }
   }
 
   return (
-    "Q1User" +
-    Math.floor(
-      Math.random() * 100000
-    )
+    "user_" +
+    Math.random()
+      .toString(36)
+      .substring(2, 10)
   );
 }
 
-
-/* =========================================================
-   MESSAGE SAFETY
-   ========================================================= */
-
-const badWords = [
-  "damn",
-  "hell",
-  "crap",
-  "bitch",
-  "bastard",
-  "shit",
-  "fuck",
-  "whore",
-  "slut",
-  "rape"
-];
-
-
-function checkMessageSafety(text) {
-  const normalized =
-    text
-      .toLowerCase()
-      .replace(/\s+/g, " ");
-
-  for (const word of badWords) {
-    const pattern =
-      new RegExp(
-        `\\b${word}\\b`,
-        "i"
-      );
-
-    if (pattern.test(normalized)) {
-      return {
-        safe: false,
-        reason:
-          "Please keep messages respectful."
-      };
-    }
-  }
-
-  return {
-    safe: true
-  };
-}
-
-
-/* =========================================================
-   PROFILE
-   ========================================================= */
 
 async function loadOrCreateProfile() {
   if (!currentUser) return;
@@ -474,25 +472,36 @@ async function loadOrCreateProfile() {
     await supabaseClient
       .from("profiles")
       .select("*")
-      .eq("id", currentUser.id)
+      .eq(
+        "id",
+        currentUser.id
+      )
       .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   if (data) {
-    currentProfile = data;
+    currentProfile =
+      data;
+
     fillSettings();
+
     return;
   }
 
   const username =
-    await generateUniqueUsername();
+    await generateUsername();
 
   const profile = {
-    id: currentUser.id,
+    id:
+      currentUser.id,
     username,
-    display_name: "Q1 User",
-    gender: "other"
+    display_name:
+      "Q1 User",
+    gender:
+      "other"
   };
 
   const {
@@ -509,7 +518,8 @@ async function loadOrCreateProfile() {
     throw createError;
   }
 
-  currentProfile = created;
+  currentProfile =
+    created;
 
   fillSettings();
 }
@@ -521,7 +531,7 @@ function fillSettings() {
   if (displayNameInput) {
     displayNameInput.value =
       currentProfile.display_name ||
-      "";
+      "Q1 User";
   }
 
   if (genderInput) {
@@ -540,8 +550,14 @@ async function saveSettings() {
     "Q1 User";
 
   const gender =
-    genderInput?.value ||
-    "other";
+    genderInput?.value || "other";
+
+  if (displayName.length < 1) {
+    showError(
+      "Please enter a display name."
+    );
+    return;
+  }
 
   const {
     data,
@@ -550,176 +566,48 @@ async function saveSettings() {
     await supabaseClient
       .from("profiles")
       .update({
-        display_name: displayName,
+        display_name:
+          displayName,
         gender
       })
-      .eq("id", currentUser.id)
+      .eq(
+        "id",
+        currentUser.id
+      )
       .select()
       .single();
 
   if (error) {
     console.error(error);
-    showError("Could not save settings.");
+
+    showError(
+      "Could not save settings."
+    );
+
     return;
   }
 
-  currentProfile = data;
+  currentProfile =
+    data;
 
-  closeDialog(settingsDialog);
+  closeDialog(
+    settingsDialog
+  );
 
   await loadUsers();
 
-  showSuccess("Settings saved.");
+  if (selectedUser) {
+    updateChatHeader();
+  }
+
+  showSuccess(
+    "Settings saved."
+  );
 }
 
 
 /* =========================================================
-   FRIENDS
-   ========================================================= */
-
-async function loadFriends() {
-  if (!currentUser) return;
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("friends")
-      .select(
-        "id,sender_id,receiver_id,status"
-      )
-      .or(
-        `sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`
-      );
-
-  if (error) {
-    console.warn(
-      "Friends table unavailable:",
-      error
-    );
-
-    friendIds.clear();
-    return;
-  }
-
-  friendIds.clear();
-
-  (data || []).forEach(friend => {
-    if (
-      friend.status !== "accepted"
-    ) {
-      return;
-    }
-
-    const friendId =
-      friend.sender_id ===
-      currentUser.id
-        ? friend.receiver_id
-        : friend.sender_id;
-
-    if (friendId) {
-      friendIds.add(friendId);
-    }
-  });
-}
-
-
-function isFriend(userId) {
-  return friendIds.has(userId);
-}
-
-
-async function sendFriendRequest(userId) {
-  if (
-    !currentUser ||
-    !userId ||
-    userId === currentUser.id
-  ) {
-    return;
-  }
-
-  const {
-    error
-  } =
-    await supabaseClient
-      .from("friends")
-      .insert({
-        sender_id: currentUser.id,
-        receiver_id: userId,
-        status: "pending"
-      });
-
-  if (error) {
-    console.error(error);
-    showError(
-      "Friend request could not be sent."
-    );
-    return;
-  }
-
-  showSuccess("Friend request sent.");
-}
-
-
-async function acceptFriendRequest(friendId) {
-  const {
-    error
-  } =
-    await supabaseClient
-      .from("friends")
-      .update({
-        status: "accepted"
-      })
-      .eq("id", friendId)
-      .eq("receiver_id", currentUser.id);
-
-  if (error) {
-    console.error(error);
-    showError(
-      "Could not accept request."
-    );
-    return;
-  }
-
-  await loadFriends();
-  await loadUsers();
-
-  showSuccess("Friend added.");
-}
-
-
-async function removeFriend(userId) {
-  if (!currentUser) return;
-
-  const {
-    error
-  } =
-    await supabaseClient
-      .from("friends")
-      .delete()
-      .or(
-        `and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUser.id})`
-      );
-
-  if (error) {
-    console.error(error);
-    showError(
-      "Could not remove friend."
-    );
-    return;
-  }
-
-  friendIds.delete(userId);
-
-  await loadUsers();
-
-  showSuccess("Friend removed.");
-}
-
-
-/* =========================================================
-   BLOCK
+   BLOCK SYSTEM
    ========================================================= */
 
 async function loadBlockedUsers() {
@@ -738,7 +626,14 @@ async function loadBlockedUsers() {
       );
 
   if (error) {
-    console.error(error);
+    console.warn(
+      "Blocks table unavailable:",
+      error
+    );
+
+    blockedUserIds =
+      new Set();
+
     return;
   }
 
@@ -749,16 +644,90 @@ async function loadBlockedUsers() {
       )
     );
 
+  await renderBlockedUsers(
+    data || []
+  );
+
   renderUsers(
     getFilteredUsers()
   );
 
-  updateBlockButtonState();
+  updateBlockButton();
 }
 
 
-function isUserBlocked(userId) {
-  return blockedUserIds.has(userId);
+async function renderBlockedUsers(rows) {
+  if (!blockedList) return;
+
+  blockedList.innerHTML = "";
+
+  if (!rows.length) {
+    blockedList.innerHTML = `
+      <div class="empty-blocked">
+        No blocked users.
+      </div>
+    `;
+
+    return;
+  }
+
+  for (const row of rows) {
+    const {
+      data: user
+    } =
+      await supabaseClient
+        .from("profiles")
+        .select(
+          "id,username,display_name,gender"
+        )
+        .eq(
+          "id",
+          row.blocked_id
+        )
+        .maybeSingle();
+
+    if (!user) continue;
+
+    const element =
+      document.createElement(
+        "div"
+      );
+
+    element.className =
+      "blockedrow";
+
+    element.innerHTML = `
+      <span>
+        ${escapeHTML(
+          getUserName(user)
+        )}
+      </span>
+
+      <button
+        type="button"
+        data-user-id="${escapeHTML(
+          user.id
+        )}"
+      >
+        Unblock
+      </button>
+    `;
+
+    element
+      .querySelector("button")
+      ?.addEventListener(
+        "click",
+        async () => {
+          await unblockUser(
+            user.id
+          );
+        }
+      );
+
+    blockedList.appendChild(
+      element
+    );
+  }
 }
 
 
@@ -770,14 +739,25 @@ async function blockSelectedUser() {
     return;
   }
 
-  const name =
-    getUserName(selectedUser);
-
   if (
-    !confirm(
-      `Block ${name}?`
+    blockedUserIds.has(
+      selectedUser.id
     )
   ) {
+    return;
+  }
+
+  const name =
+    getUserName(
+      selectedUser
+    );
+
+  const confirmed =
+    window.confirm(
+      `Block ${name}?`
+    );
+
+  if (!confirmed) {
     return;
   }
 
@@ -787,8 +767,10 @@ async function blockSelectedUser() {
     await supabaseClient
       .from("blocks")
       .insert({
-        blocker_id: currentUser.id,
-        blocked_id: selectedUser.id
+        blocker_id:
+          currentUser.id,
+        blocked_id:
+          selectedUser.id
       });
 
   if (error) {
@@ -801,11 +783,17 @@ async function blockSelectedUser() {
     return;
   }
 
-  await loadBlockedUsers();
+  blockedUserIds.add(
+    selectedUser.id
+  );
 
-  showSuccess("User blocked.");
+  updateBlockButton();
 
-  renderBlockedMessage();
+  await loadMessages();
+
+  showSuccess(
+    "User blocked."
+  );
 }
 
 
@@ -829,38 +817,179 @@ async function unblockUser(userId) {
 
   if (error) {
     console.error(error);
+
     showError(
       "Could not unblock user."
     );
+
     return;
   }
 
+  blockedUserIds.delete(
+    userId
+  );
+
   await loadBlockedUsers();
 
-  showSuccess("User unblocked.");
+  if (
+    selectedUser &&
+    selectedUser.id === userId
+  ) {
+    updateBlockButton();
+    await loadMessages();
+  }
+
+  showSuccess(
+    "User unblocked."
+  );
 }
 
 
-function updateBlockButtonState() {
+function updateBlockButton() {
   if (!blockButton) return;
 
   if (!selectedUser) {
-    blockButton.disabled = true;
+    blockButton.disabled =
+      true;
+
     return;
   }
 
   const blocked =
-    isUserBlocked(
+    blockedUserIds.has(
       selectedUser.id
     );
+
+  blockButton.disabled =
+    blocked;
 
   blockButton.textContent =
     blocked
       ? "✓ Blocked"
       : "🚫 Block";
 
-  blockButton.disabled =
-    blocked;
+  if (messageInput) {
+    messageInput.disabled =
+      blocked;
+  }
+
+  if (sendButton) {
+    sendButton.disabled =
+      blocked;
+  }
+}
+
+
+/* =========================================================
+   FRIENDS
+   ========================================================= */
+
+async function loadFriends() {
+  if (!currentUser) return;
+
+  const {
+    data,
+    error
+  } =
+    await supabaseClient
+      .from("friends")
+      .select(
+        "id,user_id,friend_id,status"
+      )
+      .or(
+        `user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`
+      );
+
+  if (error) {
+    console.warn(
+      "Friends table unavailable:",
+      error
+    );
+
+    allFriends = [];
+
+    return;
+  }
+
+  allFriends =
+    (data || []).filter(
+      row =>
+        row.status ===
+        "accepted"
+    );
+}
+
+
+function isFriend(userId) {
+  return allFriends.some(
+    row =>
+      (
+        row.user_id ===
+          currentUser.id &&
+        row.friend_id ===
+          userId
+      ) ||
+      (
+        row.friend_id ===
+          currentUser.id &&
+        row.user_id ===
+          userId
+      )
+  );
+}
+
+
+async function addFriend(user) {
+  if (
+    !currentUser ||
+    !user ||
+    user.id ===
+      currentUser.id
+  ) {
+    return;
+  }
+
+  if (isFriend(user.id)) {
+    showSuccess(
+      "Already friends."
+    );
+
+    return;
+  }
+
+  const {
+    error
+  } =
+    await supabaseClient
+      .from("friends")
+      .insert({
+        user_id:
+          currentUser.id,
+        friend_id:
+          user.id,
+        status:
+          "accepted"
+      });
+
+  if (error) {
+    console.error(error);
+
+    showError(
+      "Could not add friend."
+    );
+
+    return;
+  }
+
+  await loadFriends();
+
+  renderUsers(
+    getFilteredUsers()
+  );
+
+  showSuccess(
+    "Friend added."
+  );
 }
 
 
@@ -892,10 +1021,15 @@ async function loadUsers() {
       );
 
   if (error) {
-    console.error(error);
+    console.error(
+      "Users error:",
+      error
+    );
+
     showError(
       "Could not load people."
     );
+
     return;
   }
 
@@ -908,6 +1042,10 @@ async function loadUsers() {
 }
 
 
+/* =========================================================
+   FILTER
+   ========================================================= */
+
 function getFilteredUsers() {
   let users =
     [...allUsers];
@@ -919,87 +1057,89 @@ function getFilteredUsers() {
 
   if (query) {
     users =
-      users.filter(user => {
-        const name =
-          (
-            user.display_name ||
-            ""
-          ).toLowerCase();
+      users.filter(
+        user => {
+          const name =
+            (
+              user.display_name ||
+              ""
+            ).toLowerCase();
 
-        const username =
-          (
-            user.username ||
-            ""
-          ).toLowerCase();
+          const username =
+            (
+              user.username ||
+              ""
+            ).toLowerCase();
 
-        return (
-          name.includes(query) ||
-          username.includes(query)
-        );
-      });
-  }
-
-  if (currentFilter === "online") {
-    users =
-      users.filter(user =>
-        onlineUsers.has(user.id)
+          return (
+            name.includes(query) ||
+            username.includes(query)
+          );
+        }
       );
   }
 
-  if (currentFilter === "unread") {
-    users =
-      users.filter(user =>
-        getUnreadCount(user.id) > 0
-      );
-  }
-
-  if (currentFilter === "friends") {
-    users =
-      users.filter(user =>
-        isFriend(user.id)
-      );
-  }
-
-  return users;
-}
-
-
-/* =========================================================
-   UNREAD
-   ========================================================= */
-
-function getUnreadCount(userId) {
-  return (
-    unreadCounts.get(userId) ||
-    0
-  );
-}
-
-
-function addUnread(userId) {
   if (
-    !userId ||
-    userId === currentUser?.id
+    currentFilter ===
+    "online"
   ) {
-    return;
+    users =
+      users.filter(
+        user =>
+          isOnline(
+            user.id
+          )
+      );
   }
 
-  unreadCounts.set(
-    userId,
-    getUnreadCount(userId) + 1
-  );
+  if (
+    currentFilter ===
+    "unread"
+  ) {
+    users =
+      users.filter(
+        user =>
+          (
+            unreadCounts.get(
+              user.id
+            ) || 0
+          ) > 0
+      );
+  }
 
-  renderUsers(
-    getFilteredUsers()
-  );
-}
+  if (
+    currentFilter ===
+    "friends"
+  ) {
+    users =
+      users.filter(
+        user =>
+          isFriend(
+            user.id
+          )
+      );
+  }
 
+  if (
+    currentFilter ===
+    "recent"
+  ) {
+    users.sort(
+      (a, b) =>
+        new Date(
+          b.created_at
+        ) -
+        new Date(
+          a.created_at
+        )
+    );
+  }
 
-function clearUnread(userId) {
-  unreadCounts.delete(userId);
-
-  renderUsers(
-    getFilteredUsers()
+  return users.filter(
+    user =>
+      !blockedUserIds.has(
+        user.id
+      )
   );
 }
 
@@ -1011,7 +1151,8 @@ function clearUnread(userId) {
 function renderUsers(users) {
   if (!usersContainer) return;
 
-  usersContainer.innerHTML = "";
+  usersContainer.innerHTML =
+    "";
 
   if (userCount) {
     userCount.textContent =
@@ -1029,9 +1170,18 @@ function renderUsers(users) {
           padding:35px 20px;
           text-align:center;
           color:var(--muted);
+          font-size:11px;
         "
       >
-        👥<br><br>
+        <div
+          style="
+            font-size:25px;
+            margin-bottom:8px;
+          "
+        >
+          👥
+        </div>
+
         No people found.
       </div>
     `;
@@ -1039,86 +1189,88 @@ function renderUsers(users) {
     return;
   }
 
-  users.forEach(user => {
-    const button =
-      document.createElement("button");
+  users.forEach(
+    user => {
+      const button =
+        document.createElement(
+          "button"
+        );
 
-    button.type = "button";
-    button.className = "user";
-    button.dataset.userId =
-      user.id;
+      button.type =
+        "button";
 
-    if (
-      selectedUser &&
-      selectedUser.id === user.id
-    ) {
-      button.classList.add("selected");
-    }
+      button.className =
+        "user";
 
-    const name =
-      getUserName(user);
+      if (
+        selectedUser &&
+        selectedUser.id ===
+          user.id
+      ) {
+        button.classList.add(
+          "selected"
+        );
+      }
 
-    const gender =
-      getGender(user);
+      const name =
+        getUserName(user);
 
-    const online =
-      getOnlineStatus(user.id);
+      const initial =
+        getInitial(user);
 
-    const unread =
-      getUnreadCount(user.id);
+      const gender =
+        getGender(user);
 
-    const friend =
-      isFriend(user.id);
+      const online =
+        isOnline(
+          user.id
+        );
 
-    button.innerHTML = `
-      <div class="avatar ${gender}">
-        ${escapeHTML(
-          getInitial(user)
-        )}
-      </div>
+      const unread =
+        unreadCounts.get(
+          user.id
+        ) || 0;
 
-      <div class="info">
-
-        <strong>
-          ${escapeHTML(name)}
-        </strong>
-
-        <div class="preview">
-          @${escapeHTML(
-            user.username || "user"
-          )}
+      button.innerHTML = `
+        <div class="avatar ${gender}">
+          ${escapeHTML(initial)}
         </div>
 
-        ${
-          friend
-            ? `<small>♥ Friend</small>`
-            : ""
-        }
+        <div class="info">
+          <strong>
+            ${escapeHTML(name)}
+          </strong>
 
-      </div>
+          <div class="preview">
+            @${escapeHTML(
+              user.username ||
+              "user"
+            )}
+          </div>
+        </div>
 
-      <span class="status-indicator">
+        <span class="status-indicator">
+          ${
+            unread > 0
+              ? `<span class="unread-badge">${unread}</span>`
+              : online
+                ? "🟢"
+                : "⚫"
+          }
+        </span>
+      `;
 
-        ${
-          unread > 0
-            ? `<span class="unread-badge">${unread}</span>`
-            : online
-              ? "🟢"
-              : "⚫"
-        }
+      button.addEventListener(
+        "click",
+        () =>
+          selectUser(user)
+      );
 
-      </span>
-    `;
-
-    button.addEventListener(
-      "click",
-      () => selectUser(user)
-    );
-
-    usersContainer.appendChild(
-      button
-    );
-  });
+      usersContainer.appendChild(
+        button
+      );
+    }
+  );
 }
 
 
@@ -1129,49 +1281,80 @@ function renderUsers(users) {
 async function selectUser(user) {
   if (!user) return;
 
-  selectedUser = user;
+  selectedUser =
+    user;
 
-  clearUnread(user.id);
+  unreadCounts.delete(
+    user.id
+  );
 
   document.body.classList.add(
     "chat-open"
   );
 
-  if (chatName) {
-    chatName.textContent =
-      getUserName(user);
-  }
-
-  if (chatAvatar) {
-    chatAvatar.textContent =
-      getInitial(user);
-
-    chatAvatar.className =
-      `chat-avatar ${getGender(user)}`;
-  }
+  updateChatHeader();
 
   renderUsers(
     getFilteredUsers()
   );
 
-  updateBlockButtonState();
-
-  updateSelectedUserStatus();
-
   await loadMessages();
 
-  if (
-    messageInput &&
-    !isUserBlocked(user.id)
-  ) {
-    messageInput.disabled = false;
-    messageInput.focus();
+  updateBlockButton();
+
+  updateChatStatus();
+
+  messageInput?.focus();
+}
+
+
+function updateChatHeader() {
+  if (!selectedUser) return;
+
+  const name =
+    getUserName(
+      selectedUser
+    );
+
+  const initial =
+    getInitial(
+      selectedUser
+    );
+
+  const gender =
+    getGender(
+      selectedUser
+    );
+
+  if (chatName) {
+    chatName.textContent =
+      name;
   }
 
-  if (sendButton) {
-    sendButton.disabled =
-      isUserBlocked(user.id);
+  if (chatAvatar) {
+    chatAvatar.textContent =
+      initial;
+
+    chatAvatar.className =
+      `chat-avatar ${gender}`;
   }
+}
+
+
+function updateChatStatus() {
+  if (
+    !selectedUser ||
+    !chatStatus
+  ) {
+    return;
+  }
+
+  chatStatus.textContent =
+    isOnline(
+      selectedUser.id
+    )
+      ? "🟢 Online"
+      : "⚫ Offline";
 }
 
 
@@ -1189,18 +1372,18 @@ async function loadMessages() {
   }
 
   if (
-    isUserBlocked(
+    blockedUserIds.has(
       selectedUser.id
     )
   ) {
-    renderBlockedMessage();
+    renderBlockedChat();
     return;
   }
 
   const currentId =
     currentUser.id;
 
-  const selectedId =
+  const otherId =
     selectedUser.id;
 
   const {
@@ -1213,7 +1396,7 @@ async function loadMessages() {
         "id,sender_id,receiver_id,text,created_at"
       )
       .or(
-        `and(sender_id.eq.${currentId},receiver_id.eq.${selectedId}),and(sender_id.eq.${selectedId},receiver_id.eq.${currentId})`
+        `and(sender_id.eq.${currentId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${currentId})`
       )
       .order(
         "created_at",
@@ -1223,10 +1406,15 @@ async function loadMessages() {
       );
 
   if (error) {
-    console.error(error);
+    console.error(
+      "Messages error:",
+      error
+    );
+
     showError(
       "Could not load messages."
     );
+
     return;
   }
 
@@ -1236,7 +1424,7 @@ async function loadMessages() {
 }
 
 
-function renderBlockedMessage() {
+function renderBlockedChat() {
   if (!messagesContainer) return;
 
   messagesContainer.innerHTML = `
@@ -1254,18 +1442,10 @@ function renderBlockedMessage() {
       </p>
 
       <div class="welcome-tip">
-        Unblock this user to chat again.
+        Unblock this user from Settings.
       </div>
     </div>
   `;
-
-  if (messageInput) {
-    messageInput.disabled = true;
-  }
-
-  if (sendButton) {
-    sendButton.disabled = true;
-  }
 }
 
 
@@ -1274,9 +1454,12 @@ function renderBlockedMessage() {
    ========================================================= */
 
 function renderMessages(messages) {
-  if (!messagesContainer) return;
+  if (!messagesContainer) {
+    return;
+  }
 
-  messagesContainer.innerHTML = "";
+  messagesContainer.innerHTML =
+    "";
 
   if (!messages.length) {
     messagesContainer.innerHTML = `
@@ -1290,7 +1473,7 @@ function renderMessages(messages) {
         </h2>
 
         <p>
-          Send a message to
+          Send a respectful message to
           ${escapeHTML(
             getUserName(
               selectedUser
@@ -1307,43 +1490,66 @@ function renderMessages(messages) {
     return;
   }
 
-  messages.forEach(message => {
-    const wrapper =
-      document.createElement("div");
+  const fragment =
+    document.createDocumentFragment();
 
-    wrapper.className =
-      message.sender_id ===
-      currentUser.id
-        ? "msg me"
-        : "msg";
+  messages.forEach(
+    message => {
+      const wrapper =
+        document.createElement(
+          "div"
+        );
 
-    wrapper.dataset.messageId =
-      message.id;
+      wrapper.className =
+        message.sender_id ===
+        currentUser.id
+          ? "msg me"
+          : "msg";
 
-    const text =
-      document.createElement("div");
+      wrapper.dataset.messageId =
+        message.id;
 
-    text.className = "message-text";
-    text.textContent =
-      message.text;
+      const text =
+        document.createElement(
+          "div"
+        );
 
-    const meta =
-      document.createElement("div");
+      text.className =
+        "message-text";
 
-    meta.className = "meta";
+      text.textContent =
+        message.text || "";
 
-    meta.textContent =
-      formatTime(
-        message.created_at
+      const meta =
+        document.createElement(
+          "div"
+        );
+
+      meta.className =
+        "meta";
+
+      meta.textContent =
+        formatTime(
+          message.created_at
+        );
+
+      wrapper.appendChild(
+        text
       );
 
-    wrapper.appendChild(text);
-    wrapper.appendChild(meta);
+      wrapper.appendChild(
+        meta
+      );
 
-    messagesContainer.appendChild(
-      wrapper
-    );
-  });
+      fragment.appendChild(
+        wrapper
+      );
+    }
+  );
+
+  messagesContainer.appendChild(
+    fragment
+  );
 
   scrollMessagesToBottom();
 }
@@ -1352,6 +1558,44 @@ function renderMessages(messages) {
 /* =========================================================
    SEND MESSAGE
    ========================================================= */
+
+function checkMessageSafety(text) {
+  const blockedWords = [
+    "suicide",
+    "rape",
+    "fuck",
+    "shit",
+    "bitch"
+  ];
+
+  const lower =
+    text.toLowerCase();
+
+  for (
+    const word of blockedWords
+  ) {
+    const pattern =
+      new RegExp(
+        `\\b${word}\\b`,
+        "i"
+      );
+
+    if (
+      pattern.test(lower)
+    ) {
+      return {
+        safe: false,
+        reason:
+          "Please keep messages respectful."
+      };
+    }
+  }
+
+  return {
+    safe: true
+  };
+}
+
 
 async function sendMessage() {
   if (
@@ -1363,13 +1607,14 @@ async function sendMessage() {
   }
 
   if (
-    isUserBlocked(
+    blockedUserIds.has(
       selectedUser.id
     )
   ) {
     showError(
       "Cannot message a blocked user."
     );
+
     return;
   }
 
@@ -1378,25 +1623,32 @@ async function sendMessage() {
 
   if (!text) return;
 
-  if (text.length > 2000) {
+  if (
+    text.length > 2000
+  ) {
     showError(
       "Message cannot exceed 2000 characters."
     );
+
     return;
   }
 
   const safety =
-    checkMessageSafety(text);
+    checkMessageSafety(
+      text
+    );
 
   if (!safety.safe) {
     showError(
       safety.reason
     );
+
     return;
   }
 
   if (sendButton) {
-    sendButton.disabled = true;
+    sendButton.disabled =
+      true;
   }
 
   const {
@@ -1416,10 +1668,14 @@ async function sendMessage() {
       .single();
 
   if (error) {
-    console.error(error);
+    console.error(
+      "Send message error:",
+      error
+    );
 
     if (sendButton) {
-      sendButton.disabled = false;
+      sendButton.disabled =
+        false;
     }
 
     showError(
@@ -1429,16 +1685,18 @@ async function sendMessage() {
     return;
   }
 
-  messageInput.value = "";
+  messageInput.value =
+    "";
 
   updateCharCount();
 
   if (data) {
-    addMessageIfMissing(data);
+    await loadMessages();
   }
 
   if (sendButton) {
-    sendButton.disabled = false;
+    sendButton.disabled =
+      false;
   }
 
   messageInput.focus();
@@ -1446,7 +1704,7 @@ async function sendMessage() {
 
 
 /* =========================================================
-   REALTIME MESSAGE
+   REALTIME MESSAGES
    ========================================================= */
 
 function subscribeToMessages() {
@@ -1456,6 +1714,8 @@ function subscribeToMessages() {
     supabaseClient.removeChannel(
       messageChannel
     );
+
+    messageChannel = null;
   }
 
   messageChannel =
@@ -1470,7 +1730,7 @@ function subscribeToMessages() {
       schema: "public",
       table: "messages"
     },
-    payload => {
+    async payload => {
       const message =
         payload?.new;
 
@@ -1484,15 +1744,20 @@ function subscribeToMessages() {
         message.sender_id ===
         currentUser.id;
 
-      if (!incoming && !outgoing) {
+      if (
+        !incoming &&
+        !outgoing
+      ) {
+        return;
+      }
+
+      if (outgoing) {
         return;
       }
 
       if (
-        isUserBlocked(
-          incoming
-            ? message.sender_id
-            : message.receiver_id
+        blockedUserIds.has(
+          message.sender_id
         )
       ) {
         return;
@@ -1500,39 +1765,27 @@ function subscribeToMessages() {
 
       if (
         selectedUser &&
-        (
-          (
-            message.sender_id ===
-            selectedUser.id &&
-            message.receiver_id ===
-            currentUser.id
-          ) ||
-          (
-            message.receiver_id ===
-            selectedUser.id &&
-            message.sender_id ===
-            currentUser.id
-          )
-        )
+        selectedUser.id ===
+          message.sender_id
       ) {
-        addMessageIfMissing(message);
-
-        clearUnread(
-          selectedUser.id
-        );
+        await loadMessages();
 
         return;
       }
 
-      if (incoming) {
-        addUnread(
+      const old =
+        unreadCounts.get(
           message.sender_id
-        );
+        ) || 0;
 
-        showBrowserNotification(
-          message
-        );
-      }
+      unreadCounts.set(
+        message.sender_id,
+        old + 1
+      );
+
+      renderUsers(
+        getFilteredUsers()
+      );
     }
   );
 
@@ -1543,7 +1796,10 @@ function subscribeToMessages() {
         status
       );
 
-      if (status === "SUBSCRIBED") {
+      if (
+        status ===
+        "SUBSCRIBED"
+      ) {
         console.log(
           "✅ Q1 realtime connected"
         );
@@ -1558,75 +1814,6 @@ function subscribeToMessages() {
 }
 
 
-function addMessageIfMissing(message) {
-  if (
-    !messagesContainer ||
-    !message
-  ) {
-    return;
-  }
-
-  const existing =
-    messagesContainer.querySelector(
-      `[data-message-id="${message.id}"]`
-    );
-
-  if (existing) {
-    return;
-  }
-
-  const welcome =
-    messagesContainer.querySelector(
-      ".welcome"
-    );
-
-  if (welcome) {
-    messagesContainer.innerHTML = "";
-  }
-
-  const wrapper =
-    document.createElement("div");
-
-  wrapper.className =
-    message.sender_id ===
-    currentUser.id
-      ? "msg me"
-      : "msg";
-
-  wrapper.dataset.messageId =
-    message.id;
-
-  const text =
-    document.createElement("div");
-
-  text.className =
-    "message-text";
-
-  text.textContent =
-    message.text;
-
-  const meta =
-    document.createElement("div");
-
-  meta.className =
-    "meta";
-
-  meta.textContent =
-    formatTime(
-      message.created_at
-    );
-
-  wrapper.appendChild(text);
-  wrapper.appendChild(meta);
-
-  messagesContainer.appendChild(
-    wrapper
-  );
-
-  scrollMessagesToBottom();
-}
-
-
 /* =========================================================
    PRESENCE
    ========================================================= */
@@ -1638,6 +1825,8 @@ function subscribeToPresence() {
     supabaseClient.removeChannel(
       presenceChannel
     );
+
+    presenceChannel = null;
   }
 
   presenceChannel =
@@ -1653,198 +1842,50 @@ function subscribeToPresence() {
       }
     );
 
-  presenceChannel
-    .on(
-      "presence",
-      {
-        event: "sync"
-      },
-      () => {
-        const state =
-          presenceChannel.presenceState();
+  presenceChannel.on(
+    "presence",
+    {
+      event: "sync"
+    },
+    () => {
+      const state =
+        presenceChannel.presenceState();
 
-        onlineUsers.clear();
-
-        Object.entries(state)
-          .forEach(
-            ([key, presences]) => {
-              const presence =
-                presences?.[0];
-
-              if (presence) {
-                onlineUsers.set(
-                  presence.user_id ||
-                  key,
-                  presence
-                );
-              }
-            }
-          );
-
-        renderUsers(
-          getFilteredUsers()
+      onlineUsers =
+        new Set(
+          Object.keys(
+            state || {}
+          )
         );
 
-        updateSelectedUserStatus();
-      }
-    )
-    .on(
-      "presence",
-      {
-        event: "join"
-      },
-      ({ newPresences }) => {
-        (newPresences || [])
-          .forEach(presence => {
-            if (
-              presence.user_id
-            ) {
-              onlineUsers.set(
-                presence.user_id,
-                presence
-              );
-            }
-          });
+      renderUsers(
+        getFilteredUsers()
+      );
 
-        renderUsers(
-          getFilteredUsers()
-        );
-
-        updateSelectedUserStatus();
-      }
-    )
-    .on(
-      "presence",
-      {
-        event: "leave"
-      },
-      ({ leftPresences }) => {
-        (leftPresences || [])
-          .forEach(presence => {
-            if (
-              presence.user_id
-            ) {
-              onlineUsers.delete(
-                presence.user_id
-              );
-            }
-          });
-
-        renderUsers(
-          getFilteredUsers()
-        );
-
-        updateSelectedUserStatus();
-      }
-    )
-    .subscribe(
-      async status => {
-        console.log(
-          "Q1 presence:",
-          status
-        );
-
-        if (
-          status === "SUBSCRIBED"
-        ) {
-          await presenceChannel.track({
-            user_id:
-              currentUser.id,
-            online_at:
-              new Date().toISOString()
-          });
-        }
-      }
-    );
-}
-
-
-function getOnlineStatus(userId) {
-  return onlineUsers.has(userId);
-}
-
-
-function updateSelectedUserStatus() {
-  if (
-    !selectedUser ||
-    !chatStatus
-  ) {
-    return;
-  }
-
-  chatStatus.textContent =
-    getOnlineStatus(
-      selectedUser.id
-    )
-      ? "🟢 Online"
-      : "⚫ Offline";
-}
-
-
-/* =========================================================
-   BROWSER NOTIFICATION
-   ========================================================= */
-
-function showBrowserNotification(message) {
-  if (
-    typeof Notification ===
-    "undefined"
-  ) {
-    return;
-  }
-
-  if (
-    Notification.permission !==
-    "granted"
-  ) {
-    return;
-  }
-
-  const sender =
-    allUsers.find(
-      user =>
-        user.id ===
-        message.sender_id
-    );
-
-  const name =
-    getUserName(sender);
-
-  try {
-    new Notification(
-      `New message from ${name}`,
-      {
-        body:
-          "You have a new Q1 Chat message."
-      }
-    );
-  } catch (error) {
-    console.warn(
-      "Notification error:",
-      error
-    );
-  }
-}
-
-
-async function requestNotificationPermission() {
-  if (
-    typeof Notification ===
-    "undefined"
-  ) {
-    return;
-  }
-
-  if (
-    Notification.permission ===
-    "default"
-  ) {
-    try {
-      await Notification.requestPermission();
-    } catch (error) {
-      console.warn(error);
+      updateChatStatus();
     }
-  }
+  );
+
+  presenceChannel.subscribe(
+    async status => {
+      console.log(
+        "Q1 presence:",
+        status
+      );
+
+      if (
+        status ===
+        "SUBSCRIBED"
+      ) {
+        await presenceChannel.track({
+          user_id:
+            currentUser.id,
+          online_at:
+            new Date().toISOString()
+        });
+      }
+    }
+  );
 }
 
 
@@ -1855,192 +1896,73 @@ async function requestNotificationPermission() {
 function showProfileView(user) {
   if (
     !profileDialog ||
-    !profileContent
+    !profileContent ||
+    !user
   ) {
     return;
   }
 
+  const name =
+    getUserName(user);
+
+  const initial =
+    getInitial(user);
+
+  const gender =
+    getGender(user);
+
+  const online =
+    isOnline(
+      user.id
+    );
+
   const friend =
-    isFriend(user.id);
+    isFriend(
+      user.id
+    );
 
   profileContent.innerHTML = `
     <div class="profile-view">
 
       <div
-        class="profile-avatar ${getGender(user)}"
+        class="profile-avatar ${gender}"
       >
-        ${escapeHTML(
-          getInitial(user)
-        )}
+        ${escapeHTML(initial)}
       </div>
 
       <h3>
-        ${escapeHTML(
-          getUserName(user)
-        )}
+        ${escapeHTML(name)}
       </h3>
 
       <p>
         @${escapeHTML(
-          user.username || "user"
+          user.username ||
+          "user"
         )}
       </p>
 
       <p>
         ${
-          getOnlineStatus(user.id)
+          online
             ? "🟢 Online"
             : "⚫ Offline"
         }
       </p>
 
-      <div class="profile-actions">
-
+      <p>
         ${
           friend
-            ? `
-              <button
-                type="button"
-                id="removeFriendBtn"
-              >
-                ♥ Remove Friend
-              </button>
-            `
-            : `
-              <button
-                type="button"
-                id="addFriendBtn"
-              >
-                ➕ Add Friend
-              </button>
-            `
+            ? "❤️ Friend"
+            : "👤 Not a friend"
         }
-
-      </div>
+      </p>
 
     </div>
   `;
 
-  const addButton =
-    document.getElementById(
-      "addFriendBtn"
-    );
-
-  addButton?.addEventListener(
-    "click",
-    async () => {
-      await sendFriendRequest(
-        user.id
-      );
-    }
-  );
-
-  const removeButton =
-    document.getElementById(
-      "removeFriendBtn"
-    );
-
-  removeButton?.addEventListener(
-    "click",
-    async () => {
-      await removeFriend(
-        user.id
-      );
-
-      closeDialog(
-        profileDialog
-      );
-    }
-  );
-
   openDialog(
     profileDialog
   );
-}
-
-
-/* =========================================================
-   BLOCKED LIST
-   ========================================================= */
-
-async function renderBlockedUsers() {
-  if (!blockedList) return;
-
-  blockedList.innerHTML = "";
-
-  if (!blockedUserIds.size) {
-    blockedList.innerHTML = `
-      <div class="empty-blocked">
-        No blocked users.
-      </div>
-    `;
-
-    return;
-  }
-
-  for (
-    const userId of blockedUserIds
-  ) {
-    const {
-      data: user
-    } =
-      await supabaseClient
-        .from("profiles")
-        .select(
-          "id,username,display_name,gender"
-        )
-        .eq("id", userId)
-        .maybeSingle();
-
-    if (!user) continue;
-
-    const row =
-      document.createElement("div");
-
-    row.className =
-      "blockedrow";
-
-    row.innerHTML = `
-      <span>
-        ${escapeHTML(
-          getUserName(user)
-        )}
-      </span>
-
-      <button type="button">
-        Unblock
-      </button>
-    `;
-
-    row
-      .querySelector("button")
-      .addEventListener(
-        "click",
-        async () => {
-          await unblockUser(
-            user.id
-          );
-
-          await renderBlockedUsers();
-        }
-      );
-
-    blockedList.appendChild(row);
-  }
-}
-
-
-/* =========================================================
-   SCROLL
-   ========================================================= */
-
-function scrollMessagesToBottom() {
-  if (!messagesContainer) return;
-
-  requestAnimationFrame(() => {
-    messagesContainer.scrollTop =
-      messagesContainer.scrollHeight;
-  });
 }
 
 
@@ -2058,6 +1980,22 @@ function updateCharCount() {
 
   charCount.textContent =
     `${messageInput.value.length}/2000`;
+}
+
+
+/* =========================================================
+   SCROLL
+   ========================================================= */
+
+function scrollMessagesToBottom() {
+  if (!messagesContainer) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    messagesContainer.scrollTop =
+      messagesContainer.scrollHeight;
+  });
 }
 
 
@@ -2107,9 +2045,9 @@ function closeDialog(dialog) {
    ========================================================= */
 
 function setupUI() {
-  if (uiInitialized) return;
+  if (uiReady) return;
 
-  uiInitialized = true;
+  uiReady = true;
 
   searchInput?.addEventListener(
     "input",
@@ -2131,10 +2069,12 @@ function setupUI() {
     "keydown",
     event => {
       if (
-        event.key === "Enter" &&
+        event.key ===
+          "Enter" &&
         !event.shiftKey
       ) {
         event.preventDefault();
+
         sendMessage();
       }
     }
@@ -2151,6 +2091,7 @@ function setupUI() {
     "click",
     () => {
       fillSettings();
+
       openDialog(
         settingsDialog
       );
@@ -2189,7 +2130,8 @@ function setupUI() {
   blockedButton?.addEventListener(
     "click",
     async () => {
-      await renderBlockedUsers();
+      await loadBlockedUsers();
+
       openDialog(
         blockedDialog
       );
@@ -2233,34 +2175,44 @@ function setupUI() {
     .querySelectorAll(
       ".filter[data-filter]"
     )
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          document
-            .querySelectorAll(
-              ".filter[data-filter]"
-            )
-            .forEach(btn =>
-              btn.classList.remove(
-                "active"
+    .forEach(
+      button => {
+        button.addEventListener(
+          "click",
+          async () => {
+            document
+              .querySelectorAll(
+                ".filter[data-filter]"
               )
+              .forEach(
+                item =>
+                  item.classList.remove(
+                    "active"
+                  )
+              );
+
+            button.classList.add(
+              "active"
             );
 
-          button.classList.add(
-            "active"
-          );
+            currentFilter =
+              button.dataset.filter ||
+              "online";
 
-          currentFilter =
-            button.dataset.filter ||
-            "online";
+            if (
+              currentFilter ===
+              "friends"
+            ) {
+              await loadFriends();
+            }
 
-          renderUsers(
-            getFilteredUsers()
-          );
-        }
-      );
-    });
+            renderUsers(
+              getFilteredUsers()
+            );
+          }
+        );
+      }
+    );
 
 
   reportButton?.addEventListener(
@@ -2268,20 +2220,14 @@ function setupUI() {
     () => {
       if (!selectedUser) return;
 
-      alert(
-        "Report feature will be connected to the Q1 moderation system."
+      window.alert(
+        "Report feature will be connected to Q1 moderation."
       );
     }
   );
 
 
-  document.addEventListener(
-    "click",
-    requestNotificationPermission,
-    {
-      once: true
-    }
-  );
+  updateCharCount();
 }
 
 
@@ -2290,7 +2236,9 @@ function setupUI() {
    ========================================================= */
 
 async function startQ1Chat() {
-  if (appStarted) return;
+  if (appStarted) {
+    return;
+  }
 
   appStarted = true;
 
@@ -2303,34 +2251,30 @@ async function startQ1Chat() {
     );
 
     const {
-      data: sessionData,
-      error: sessionError
+      data,
+      error
     } =
       await supabaseClient.auth.getSession();
 
-    if (sessionError) {
-      throw sessionError;
+    if (error) {
+      throw error;
     }
 
     if (
-      sessionData?.session?.user
+      data?.session?.user
     ) {
       currentUser =
-        sessionData.session.user;
+        data.session.user;
     } else {
-      const {
-        data,
-        error
-      } =
-        await supabaseClient.auth
-          .signInAnonymously();
+      const result =
+        await supabaseClient.auth.signInAnonymously();
 
-      if (error) {
-        throw error;
+      if (result.error) {
+        throw result.error;
       }
 
       currentUser =
-        data?.user;
+        result.data?.user;
     }
 
     if (!currentUser) {
@@ -2341,17 +2285,15 @@ async function startQ1Chat() {
 
     await loadOrCreateProfile();
 
-    await loadFriends();
-
     await loadBlockedUsers();
+
+    await loadFriends();
 
     await loadUsers();
 
     subscribeToPresence();
 
     subscribeToMessages();
-
-    updateCharCount();
 
     setAuthStatus(
       "Connected",
@@ -2373,20 +2315,28 @@ async function startQ1Chat() {
       "error"
     );
 
-    showError(
-      "Q1 Chat could not connect to Supabase."
-    );
+    if (
+      chatStatus
+    ) {
+      chatStatus.textContent =
+        "❌ Could not connect to Q1.";
+    }
   }
 }
 
 
 /* =========================================================
-   AUTH
+   AUTH STATE
    ========================================================= */
 
 supabaseClient.auth.onAuthStateChange(
-  async (_event, session) => {
-    if (!session?.user) return;
+  async (
+    _event,
+    session
+  ) => {
+    if (!session?.user) {
+      return;
+    }
 
     if (
       currentUser &&
@@ -2401,26 +2351,21 @@ supabaseClient.auth.onAuthStateChange(
 
     try {
       await loadOrCreateProfile();
-      await loadFriends();
+
       await loadBlockedUsers();
+
+      await loadFriends();
+
       await loadUsers();
 
       subscribeToPresence();
-      subscribeToMessages();
 
-      setAuthStatus(
-        "Connected",
-        "success"
-      );
+      subscribeToMessages();
 
     } catch (error) {
       console.error(
         "Auth state error:",
         error
-      );
-
-      showError(
-        "Could not load your profile."
       );
     }
   }
@@ -2452,25 +2397,23 @@ window.addEventListener(
       supabaseClient.removeChannel(
         presenceChannel
       );
+
+      presenceChannel = null;
     }
 
     if (messageChannel) {
       supabaseClient.removeChannel(
         messageChannel
       );
-    }
 
-    if (friendChannel) {
-      supabaseClient.removeChannel(
-        friendChannel
-      );
+      messageChannel = null;
     }
   }
 );
 
 
 /* =========================================================
-   RUN
+   BOOT
    ========================================================= */
 
 if (
