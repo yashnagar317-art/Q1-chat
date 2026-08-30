@@ -1,8 +1,244 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Q1 Chat</title><link rel="stylesheet" href="style.css"></head><body>
-<header><b>Q1 <span>Chat</span></b><div><button id="settingsBtn">⚙ Settings</button></div></header>
-<nav><button class="active" data-filter="online">Online</button><button data-filter="unread">Unread</button><button data-filter="recent">Recent</button><button data-filter="friends">♥ Friends</button></nav>
-<main><aside><input id="search" placeholder="Search users..."><div class="note">🛡️ Unsafe content and external promotional/contact links are blocked.</div><div id="users"></div></aside>
-<section><div class="chathead"><div><strong id="chatName">Select a person</strong><small id="status">Choose a chat</small></div><div><button id="block">Block</button><button id="report">Report</button></div></div><div id="messages" class="messages"><div class="welcome">💬<h2>Welcome to Q1 Chat</h2><p>Select a person to start a conversation.</p></div></div><div class="composer"><textarea id="input" disabled placeholder="Write a message..."></textarea><button id="send" disabled>Send</button></div></section></main>
-<dialog id="settings"><h3>Settings <button onclick="settings.close()">×</button></h3><label>Display name<input id="displayName"></label><label>Gender<select id="gender"><option value="boy">Boy</option><option value="girl">Girl</option><option value="other">Prefer not to say</option></select></label><label>Age group<select id="age"><option>13-17</option><option>18+</option></select></label><button id="blocked">Blocked Users</button><button id="save">Save settings</button><p>For safety, never share passwords, addresses or private contact details.</p></dialog>
-<dialog id="blockedDialog"><h3>Blocked Users <button onclick="blockedDialog.close()">×</button></h3><div id="blockedList"></div></dialog>
-<script src="app.js"></script></body></html>
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Q1 Chat</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <b>Q1 <span>Chat</span></b>
+
+    <div>
+      <button id="settingsBtn" type="button">
+        ⚙ Settings
+      </button>
+    </div>
+  </header>
+
+
+  <!-- NAVIGATION -->
+  <nav>
+    <button class="active" data-filter="online" type="button">
+      Online
+    </button>
+
+    <button data-filter="unread" type="button">
+      Unread
+    </button>
+
+    <button data-filter="recent" type="button">
+      Recent
+    </button>
+
+    <button data-filter="friends" type="button">
+      ♥ Friends
+    </button>
+  </nav>
+
+
+  <!-- MAIN CHAT APP -->
+  <main>
+
+    <!-- USERS SIDEBAR -->
+    <aside>
+
+      <input
+        id="search"
+        type="search"
+        placeholder="Search users..."
+        autocomplete="off"
+      >
+
+      <div class="note">
+        🛡️ Unsafe content and external promotional/contact links are blocked.
+      </div>
+
+      <div id="users"></div>
+
+    </aside>
+
+
+    <!-- CHAT AREA -->
+    <section>
+
+      <!-- CHAT HEADER -->
+      <div class="chathead">
+
+        <div>
+          <strong id="chatName">
+            Select a person
+          </strong>
+
+          <small id="status">
+            Choose a chat
+          </small>
+        </div>
+
+        <div>
+          <button id="block" type="button">
+            Block
+          </button>
+
+          <button id="report" type="button">
+            Report
+          </button>
+        </div>
+
+      </div>
+
+
+      <!-- MESSAGES -->
+      <div id="messages" class="messages">
+
+        <div class="welcome">
+          💬
+
+          <h2>
+            Welcome to Q1 Chat
+          </h2>
+
+          <p>
+            Select a person to start a conversation.
+          </p>
+        </div>
+
+      </div>
+
+
+      <!-- MESSAGE COMPOSER -->
+      <div class="composer">
+
+        <textarea
+          id="input"
+          disabled
+          placeholder="Write a message..."
+          maxlength="2000"
+        ></textarea>
+
+        <button
+          id="send"
+          type="button"
+          disabled
+        >
+          Send
+        </button>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- SETTINGS DIALOG -->
+  <dialog id="settings">
+
+    <h3>
+      Settings
+
+      <button
+        type="button"
+        onclick="document.getElementById('settings').close()"
+        aria-label="Close settings"
+      >
+        ×
+      </button>
+    </h3>
+
+
+    <label>
+      Display name
+
+      <input
+        id="displayName"
+        type="text"
+        maxlength="40"
+        autocomplete="nickname"
+      >
+    </label>
+
+
+    <label>
+      Gender
+
+      <select id="gender">
+        <option value="boy">Boy</option>
+        <option value="girl">Girl</option>
+        <option value="other">Prefer not to say</option>
+      </select>
+    </label>
+
+
+    <label>
+      Age group
+
+      <select id="age">
+        <option value="13-17">13-17</option>
+        <option value="18+">18+</option>
+      </select>
+    </label>
+
+
+    <button
+      id="blocked"
+      type="button"
+    >
+      Blocked Users
+    </button>
+
+
+    <button
+      id="save"
+      type="button"
+    >
+      Save settings
+    </button>
+
+
+    <p>
+      For safety, never share passwords, addresses or private contact details.
+    </p>
+
+  </dialog>
+
+
+  <!-- BLOCKED USERS DIALOG -->
+  <dialog id="blockedDialog">
+
+    <h3>
+      Blocked Users
+
+      <button
+        type="button"
+        onclick="document.getElementById('blockedDialog').close()"
+        aria-label="Close blocked users"
+      >
+        ×
+      </button>
+    </h3>
+
+
+    <div id="blockedList">
+      <p>No blocked users.</p>
+    </div>
+
+  </dialog>
+
+
+  <!-- SUPABASE -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Q1 CHAT APP -->
+  <script src="app.js"></script>
+
+</body>
+</html>
+```
