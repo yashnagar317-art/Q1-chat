@@ -1,2432 +1,3734 @@
-/* =========================================================
-   Q1 CHAT — COMPLETE CLEAN APP.JS
-   Matches the supplied HTML IDs exactly
-   ========================================================= */
-
-
-/* =========================================================
-   SUPABASE
-   ========================================================= */
-
-const SUPABASE_URL =
-  "https://ubkvpmwpvmozhbwlxhmx.supabase.co";
-
-const SUPABASE_KEY =
-  "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
-
+const SUPABASE_URL = "https://ubkvpmwpvmozhbwlxhmx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
 
 if (!window.supabase) {
-  console.error("Supabase library not loaded.");
-  throw new Error("Supabase library is missing.");
+throw new Error("Supabase JS v2 was not loaded.");
 }
 
-
-const supabaseClient =
-  window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-  );
-
+const supabaseClient = window.supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
 
 /* =========================================================
-   STATE
-   ========================================================= */
+STATE
+========================================================= */
 
-let currentUser = null;
-let currentProfile = null;
-let selectedUser = null;
-
-let allUsers = [];
-let allFriends = [];
-
-let blockedUserIds = new Set();
-let onlineUsers = new Set();
-let unreadCounts = new Map();
-
-let presenceChannel = null;
-let messageChannel = null;
-
-let currentFilter = "online";
-let appStarted = false;
-let uiReady = false;
-
-
-/* =========================================================
-   DOM
-   ========================================================= */
-
-const authStatus =
-  document.getElementById("authStatus");
-
-const usersContainer =
-  document.getElementById("users");
-
-const userCount =
-  document.getElementById("userCount");
-
-const searchInput =
-  document.getElementById("search");
-
-const chatAvatar =
-  document.getElementById("chatAvatar");
-
-const chatName =
-  document.getElementById("chatName");
-
-const chatStatus =
-  document.getElementById("status");
-
-const messagesContainer =
-  document.getElementById("messages");
-
-const messageInput =
-  document.getElementById("input");
-
-const sendButton =
-  document.getElementById("send");
-
-const charCount =
-  document.getElementById("charCount");
-
-const blockButton =
-  document.getElementById("block");
-
-const reportButton =
-  document.getElementById("report");
-
-const settingsButton =
-  document.getElementById("settingsBtn");
-
-const settingsDialog =
-  document.getElementById("settings");
-
-const closeSettingsButton =
-  document.getElementById("closeSettings");
-
-const displayNameInput =
-  document.getElementById("displayName");
-
-const genderInput =
-  document.getElementById("gender");
-
-const saveButton =
-  document.getElementById("save");
-
-const blockedButton =
-  document.getElementById("blocked");
-
-const blockedDialog =
-  document.getElementById("blockedDialog");
-
-const closeBlockedButton =
-  document.getElementById("closeBlocked");
-
-const blockedList =
-  document.getElementById("blockedList");
-
-const themeToggle =
-  document.getElementById("themeToggle");
-
-const profileDialog =
-  document.getElementById("profileDialog");
-
-const closeProfileButton =
-  document.getElementById("closeProfile");
-
-const profileContent =
-  document.getElementById("profileContent");
-
+const state = {
+user: null,
+profile: null,
+users: [],
+filteredUsers: [],
+friends: [],
+incomingRequests: [],
+outgoingRequests: [],
+blockedUsers: [],
+selectedUser: null,
+messages: [],
+unreadCounts: {},
+onlineUsers: new Set(),
+activeFilter: "all",
+searchTerm: "",
+channels: {
+presence: null,
+messages: null
+},
+presenceStarted: false,
+privateUnlocked: false,
+currentTheme: "light",
+loadingUsers: false,
+loadingMessages: false,
+sendingMessage: false,
+uploadingMedia: false,
+initialized: false
+};
 
 /* =========================================================
-   HELPERS
-   ========================================================= */
+DOM
+========================================================= */
 
-function escapeHTML(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+const $ = (id) => document.getElementById(id);
+
+const dom = {
+authStatus: $("authStatus"),
+settingsBtn: $("settingsBtn"),
+userCount: $("userCount"),
+search: $("search"),
+users: $("users"),
+
+```
+chatAvatar: $("chatAvatar"),
+chatName: $("chatName"),
+status: $("status"),
+addFriend: $("addFriend"),
+block: $("block"),
+report: $("report"),
+
+messages: $("messages"),
+input: $("input"),
+charCount: $("charCount"),
+send: $("send"),
+
+photoBtn: $("photoBtn"),
+videoBtn: $("videoBtn"),
+linkBtn: $("linkBtn"),
+photoInput: $("photoInput"),
+videoInput: $("videoInput"),
+
+settings: $("settings"),
+closeSettings: $("closeSettings"),
+myProfileAvatar: $("myProfileAvatar"),
+profilePhotoBtn: $("profilePhotoBtn"),
+profilePhotoInput: $("profilePhotoInput"),
+displayName: $("displayName"),
+gender: $("gender"),
+privateChatSettings: $("privateChatSettings"),
+blocked: $("blocked"),
+themeToggle: $("themeToggle"),
+save: $("save"),
+
+privateChatDialog: $("privateChatDialog"),
+closePrivateChat: $("closePrivateChat"),
+privateChatPin: $("privateChatPin"),
+unlockPrivateChat: $("unlockPrivateChat"),
+
+blockedDialog: $("blockedDialog"),
+closeBlocked: $("closeBlocked"),
+blockedList: $("blockedList"),
+
+profileDialog: $("profileDialog"),
+closeProfile: $("closeProfile"),
+profileContent: $("profileContent"),
+
+privateChatStatus: $("privateChatStatus"),
+privateChatBtn: $("privateChatBtn")
+```
+
+};
+
+/* =========================================================
+HELPERS
+========================================================= */
+
+function escapeHTML(value = "") {
+return String(value)
+.replace(/&/g, "&")
+.replace(/</g, "<")
+.replace(/>/g, ">")
+.replace(/"/g, """)
+.replace(/'/g, "'");
 }
 
-
-function getUserName(user) {
-  return (
-    user?.display_name ||
-    user?.username ||
-    "Q1 User"
-  );
+function escapeAttribute(value = "") {
+return escapeHTML(value).replace(/`/g, "`");
 }
 
-
-function getInitial(user) {
-  const name =
-    getUserName(user).trim();
-
-  return (
-    name.charAt(0).toUpperCase() ||
-    "Q"
-  );
+function normalizeUsername(value = "") {
+return String(value)
+.trim()
+.toLowerCase()
+.replace(/[^a-z0-9_]/g, "");
 }
 
-
-function getGender(user) {
-  if (
-    user?.gender === "boy" ||
-    user?.gender === "girl"
-  ) {
-    return user.gender;
-  }
-
-  return "other";
+function isValidUUID(value) {
+return typeof value === "string" &&
+/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function showError(message, error = null) {
+console.error("[Q1 Chat]", message, error || "");
+
+```
+if (dom.authStatus) {
+    dom.authStatus.textContent = message;
+    dom.authStatus.classList.add("error");
+}
+```
+
+}
+
+function clearError() {
+if (dom.authStatus) {
+dom.authStatus.classList.remove("error");
+}
+}
+
+function setStatus(message) {
+if (dom.authStatus) {
+dom.authStatus.textContent = message;
+}
+}
+
+function formatTime(dateString) {
+if (!dateString) return "";
+
+```
+const date = new Date(dateString);
+
+if (Number.isNaN(date.getTime())) return "";
+
+return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+});
+```
+
+}
+
+function formatRecentTime(dateString) {
+if (!dateString) return 0;
+
+```
+const time = new Date(dateString).getTime();
+
+return Number.isNaN(time) ? 0 : time;
+```
+
+}
+
+function getAvatar(profile, fallback = "Q") {
+if (profile?.avatar_url) {
+return profile.avatar_url;
+}
+
+```
+const name =
+    profile?.display_name ||
+    profile?.username ||
+    fallback;
+
+return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
+```
+
+}
+
+function setImageSource(element, profile) {
+if (!element) return;
+
+```
+const avatar = getAvatar(profile);
+
+if (element.tagName === "IMG") {
+    element.src = avatar;
+    element.alt =
+        profile?.display_name ||
+        profile?.username ||
+        "Profile";
+} else {
+    element.style.backgroundImage = `url("${escapeAttribute(avatar)}")`;
+}
+```
+
+}
+
+function getDisplayName(profile) {
+return profile?.display_name?.trim() ||
+profile?.username ||
+"User";
+}
+
+function getUsername(profile) {
+return profile?.username || "";
+}
+
+function getInitial(profile) {
+return getDisplayName(profile).charAt(0).toUpperCase() || "Q";
+}
 
 function isOnline(userId) {
-  return onlineUsers.has(userId);
+return state.onlineUsers.has(userId);
 }
-
-
-function formatTime(timestamp) {
-  if (!timestamp) return "";
-
-  const date =
-    new Date(timestamp);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  return date.toLocaleTimeString(
-    [],
-    {
-      hour: "2-digit",
-      minute: "2-digit"
-    }
-  );
-}
-
-
-function showError(message) {
-  console.error(
-    "Q1:",
-    message
-  );
-
-  if (!chatStatus) return;
-
-  const old =
-    chatStatus.textContent;
-
-  chatStatus.textContent =
-    "❌ " + message;
-
-  setTimeout(() => {
-    if (
-      selectedUser &&
-      chatStatus
-    ) {
-      updateChatStatus();
-    } else if (chatStatus) {
-      chatStatus.textContent =
-        old || "Ready";
-    }
-  }, 3000);
-}
-
-
-function showSuccess(message) {
-  console.log(
-    "Q1:",
-    message
-  );
-
-  if (!chatStatus) return;
-
-  const old =
-    chatStatus.textContent;
-
-  chatStatus.textContent =
-    "✓ " + message;
-
-  setTimeout(() => {
-    if (
-      selectedUser &&
-      chatStatus
-    ) {
-      updateChatStatus();
-    } else if (chatStatus) {
-      chatStatus.textContent =
-        old || "Ready";
-    }
-  }, 2500);
-}
-
-
-/* =========================================================
-   THEME
-   ========================================================= */
-
-function initTheme() {
-  const savedTheme =
-    localStorage.getItem(
-      "q1-theme"
-    ) || "light";
-
-  document.documentElement.setAttribute(
-    "data-theme",
-    savedTheme
-  );
-
-  updateThemeButton(
-    savedTheme
-  );
-}
-
-
-function updateThemeButton(theme) {
-  if (!themeToggle) return;
-
-  themeToggle.textContent =
-    theme === "dark"
-      ? "☀️ Light mode"
-      : "🌙 Dark mode";
-}
-
-
-function toggleTheme() {
-  const current =
-    document.documentElement.getAttribute(
-      "data-theme"
-    ) || "light";
-
-  const next =
-    current === "dark"
-      ? "light"
-      : "dark";
-
-  document.documentElement.setAttribute(
-    "data-theme",
-    next
-  );
-
-  localStorage.setItem(
-    "q1-theme",
-    next
-  );
-
-  updateThemeButton(next);
-}
-
-
-/* =========================================================
-   AUTH STATUS
-   ========================================================= */
-
-function setAuthStatus(
-  text,
-  type = "normal"
-) {
-  if (!authStatus) return;
-
-  authStatus.innerHTML = `
-    <span class="connection-dot"></span>
-    ${escapeHTML(text)}
-  `;
-
-  const dot =
-    authStatus.querySelector(
-      ".connection-dot"
-    );
-
-  if (!dot) return;
-
-  dot.style.background =
-    type === "success"
-      ? "#2db36c"
-      : type === "error"
-        ? "#d9534f"
-        : "#f0a000";
-}
-
-
-/* =========================================================
-   PROFILE
-   ========================================================= */
-
-const adjectives = [
-  "Vivid",
-  "Neon",
-  "Sky",
-  "Moon",
-  "Pixel",
-  "Star",
-  "Solar",
-  "Cyber",
-  "Swift",
-  "Bright",
-  "Cosmic",
-  "Golden",
-  "Silver",
-  "Ocean",
-  "Forest",
-  "Mystic",
-  "Quantum",
-  "Nova",
-  "Stellar",
-  "Crystal"
-];
-
-
-const animals = [
-  "Griffin",
-  "Fox",
-  "Panda",
-  "Tiger",
-  "Wolf",
-  "Falcon",
-  "Dragon",
-  "Phoenix",
-  "Eagle",
-  "Raven",
-  "Owl",
-  "Lion",
-  "Deer",
-  "Rabbit",
-  "Bear",
-  "Dolphin",
-  "Penguin",
-  "Otter",
-  "Hawk",
-  "Koala"
-];
-
-
-async function generateUsername() {
-  for (
-    let attempt = 0;
-    attempt < 10;
-    attempt++
-  ) {
-    const adjective =
-      adjectives[
-        Math.floor(
-          Math.random() *
-          adjectives.length
-        )
-      ];
-
-    const animal =
-      animals[
-        Math.floor(
-          Math.random() *
-          animals.length
-        )
-      ];
-
-    const username =
-      adjective + animal;
-
-    const {
-      data,
-      error
-    } =
-      await supabaseClient
-        .from("profiles")
-        .select("id")
-        .eq(
-          "username",
-          username
-        )
-        .maybeSingle();
-
-    if (
-      !error &&
-      !data
-    ) {
-      return username;
-    }
-  }
-
-  return (
-    "user_" +
-    Math.random()
-      .toString(36)
-      .substring(2, 10)
-  );
-}
-
-
-async function loadOrCreateProfile() {
-  if (!currentUser) return;
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("profiles")
-      .select("*")
-      .eq(
-        "id",
-        currentUser.id
-      )
-      .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (data) {
-    currentProfile =
-      data;
-
-    fillSettings();
-
-    return;
-  }
-
-  const username =
-    await generateUsername();
-
-  const profile = {
-    id:
-      currentUser.id,
-    username,
-    display_name:
-      "Q1 User",
-    gender:
-      "other"
-  };
-
-  const {
-    data: created,
-    error: createError
-  } =
-    await supabaseClient
-      .from("profiles")
-      .insert(profile)
-      .select()
-      .single();
-
-  if (createError) {
-    throw createError;
-  }
-
-  currentProfile =
-    created;
-
-  fillSettings();
-}
-
-
-function fillSettings() {
-  if (!currentProfile) return;
-
-  if (displayNameInput) {
-    displayNameInput.value =
-      currentProfile.display_name ||
-      "Q1 User";
-  }
-
-  if (genderInput) {
-    genderInput.value =
-      currentProfile.gender ||
-      "other";
-  }
-}
-
-
-async function saveSettings() {
-  if (!currentUser) return;
-
-  const displayName =
-    displayNameInput?.value.trim() ||
-    "Q1 User";
-
-  const gender =
-    genderInput?.value || "other";
-
-  if (displayName.length < 1) {
-    showError(
-      "Please enter a display name."
-    );
-    return;
-  }
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("profiles")
-      .update({
-        display_name:
-          displayName,
-        gender
-      })
-      .eq(
-        "id",
-        currentUser.id
-      )
-      .select()
-      .single();
-
-  if (error) {
-    console.error(error);
-
-    showError(
-      "Could not save settings."
-    );
-
-    return;
-  }
-
-  currentProfile =
-    data;
-
-  closeDialog(
-    settingsDialog
-  );
-
-  await loadUsers();
-
-  if (selectedUser) {
-    updateChatHeader();
-  }
-
-  showSuccess(
-    "Settings saved."
-  );
-}
-
-
-/* =========================================================
-   BLOCK SYSTEM
-   ========================================================= */
-
-async function loadBlockedUsers() {
-  if (!currentUser) return;
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("blocks")
-      .select("blocked_id")
-      .eq(
-        "blocker_id",
-        currentUser.id
-      );
-
-  if (error) {
-    console.warn(
-      "Blocks table unavailable:",
-      error
-    );
-
-    blockedUserIds =
-      new Set();
-
-    return;
-  }
-
-  blockedUserIds =
-    new Set(
-      (data || []).map(
-        row => row.blocked_id
-      )
-    );
-
-  await renderBlockedUsers(
-    data || []
-  );
-
-  renderUsers(
-    getFilteredUsers()
-  );
-
-  updateBlockButton();
-}
-
-
-async function renderBlockedUsers(rows) {
-  if (!blockedList) return;
-
-  blockedList.innerHTML = "";
-
-  if (!rows.length) {
-    blockedList.innerHTML = `
-      <div class="empty-blocked">
-        No blocked users.
-      </div>
-    `;
-
-    return;
-  }
-
-  for (const row of rows) {
-    const {
-      data: user
-    } =
-      await supabaseClient
-        .from("profiles")
-        .select(
-          "id,username,display_name,gender"
-        )
-        .eq(
-          "id",
-          row.blocked_id
-        )
-        .maybeSingle();
-
-    if (!user) continue;
-
-    const element =
-      document.createElement(
-        "div"
-      );
-
-    element.className =
-      "blockedrow";
-
-    element.innerHTML = `
-      <span>
-        ${escapeHTML(
-          getUserName(user)
-        )}
-      </span>
-
-      <button
-        type="button"
-        data-user-id="${escapeHTML(
-          user.id
-        )}"
-      >
-        Unblock
-      </button>
-    `;
-
-    element
-      .querySelector("button")
-      ?.addEventListener(
-        "click",
-        async () => {
-          await unblockUser(
-            user.id
-          );
-        }
-      );
-
-    blockedList.appendChild(
-      element
-    );
-  }
-}
-
-
-async function blockSelectedUser() {
-  if (
-    !currentUser ||
-    !selectedUser
-  ) {
-    return;
-  }
-
-  if (
-    blockedUserIds.has(
-      selectedUser.id
-    )
-  ) {
-    return;
-  }
-
-  const name =
-    getUserName(
-      selectedUser
-    );
-
-  const confirmed =
-    window.confirm(
-      `Block ${name}?`
-    );
-
-  if (!confirmed) {
-    return;
-  }
-
-  const {
-    error
-  } =
-    await supabaseClient
-      .from("blocks")
-      .insert({
-        blocker_id:
-          currentUser.id,
-        blocked_id:
-          selectedUser.id
-      });
-
-  if (error) {
-    console.error(error);
-
-    showError(
-      "Could not block user."
-    );
-
-    return;
-  }
-
-  blockedUserIds.add(
-    selectedUser.id
-  );
-
-  updateBlockButton();
-
-  await loadMessages();
-
-  showSuccess(
-    "User blocked."
-  );
-}
-
-
-async function unblockUser(userId) {
-  if (!currentUser) return;
-
-  const {
-    error
-  } =
-    await supabaseClient
-      .from("blocks")
-      .delete()
-      .eq(
-        "blocker_id",
-        currentUser.id
-      )
-      .eq(
-        "blocked_id",
-        userId
-      );
-
-  if (error) {
-    console.error(error);
-
-    showError(
-      "Could not unblock user."
-    );
-
-    return;
-  }
-
-  blockedUserIds.delete(
-    userId
-  );
-
-  await loadBlockedUsers();
-
-  if (
-    selectedUser &&
-    selectedUser.id === userId
-  ) {
-    updateBlockButton();
-    await loadMessages();
-  }
-
-  showSuccess(
-    "User unblocked."
-  );
-}
-
-
-function updateBlockButton() {
-  if (!blockButton) return;
-
-  if (!selectedUser) {
-    blockButton.disabled =
-      true;
-
-    return;
-  }
-
-  const blocked =
-    blockedUserIds.has(
-      selectedUser.id
-    );
-
-  blockButton.disabled =
-    blocked;
-
-  blockButton.textContent =
-    blocked
-      ? "✓ Blocked"
-      : "🚫 Block";
-
-  if (messageInput) {
-    messageInput.disabled =
-      blocked;
-  }
-
-  if (sendButton) {
-    sendButton.disabled =
-      blocked;
-  }
-}
-
-
-/* =========================================================
-   FRIENDS
-   ========================================================= */
-
-async function loadFriends() {
-  if (!currentUser) return;
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("friends")
-      .select(
-        "id,user_id,friend_id,status"
-      )
-      .or(
-        `user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`
-      );
-
-  if (error) {
-    console.warn(
-      "Friends table unavailable:",
-      error
-    );
-
-    allFriends = [];
-
-    return;
-  }
-
-  allFriends =
-    (data || []).filter(
-      row =>
-        row.status ===
-        "accepted"
-    );
-}
-
 
 function isFriend(userId) {
-  return allFriends.some(
-    row =>
-      (
-        row.user_id ===
-          currentUser.id &&
-        row.friend_id ===
-          userId
-      ) ||
-      (
-        row.friend_id ===
-          currentUser.id &&
-        row.user_id ===
-          userId
-      )
-  );
+return state.friends.some(
+(friend) => friend.user_id === userId
+);
 }
 
-
-async function addFriend(user) {
-  if (
-    !currentUser ||
-    !user ||
-    user.id ===
-      currentUser.id
-  ) {
-    return;
-  }
-
-  if (isFriend(user.id)) {
-    showSuccess(
-      "Already friends."
-    );
-
-    return;
-  }
-
-  const {
-    error
-  } =
-    await supabaseClient
-      .from("friends")
-      .insert({
-        user_id:
-          currentUser.id,
-        friend_id:
-          user.id,
-        status:
-          "accepted"
-      });
-
-  if (error) {
-    console.error(error);
-
-    showError(
-      "Could not add friend."
-    );
-
-    return;
-  }
-
-  await loadFriends();
-
-  renderUsers(
-    getFilteredUsers()
-  );
-
-  showSuccess(
-    "Friend added."
-  );
+function hasOutgoingRequest(userId) {
+return state.outgoingRequests.some(
+(request) => request.user_id === userId
+);
 }
 
-
-/* =========================================================
-   USERS
-   ========================================================= */
-
-async function loadUsers() {
-  if (!currentUser) return;
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("profiles")
-      .select(
-        "id,username,display_name,gender,created_at"
-      )
-      .neq(
-        "id",
-        currentUser.id
-      )
-      .order(
-        "created_at",
-        {
-          ascending: false
-        }
-      );
-
-  if (error) {
-    console.error(
-      "Users error:",
-      error
-    );
-
-    showError(
-      "Could not load people."
-    );
-
-    return;
-  }
-
-  allUsers =
-    data || [];
-
-  renderUsers(
-    getFilteredUsers()
-  );
+function hasIncomingRequest(userId) {
+return state.incomingRequests.some(
+(request) => request.user_id === userId
+);
 }
 
-
-/* =========================================================
-   FILTER
-   ========================================================= */
-
-function getFilteredUsers() {
-  let users =
-    [...allUsers];
-
-  const query =
-    searchInput?.value
-      .trim()
-      .toLowerCase() || "";
-
-  if (query) {
-    users =
-      users.filter(
-        user => {
-          const name =
-            (
-              user.display_name ||
-              ""
-            ).toLowerCase();
-
-          const username =
-            (
-              user.username ||
-              ""
-            ).toLowerCase();
-
-          return (
-            name.includes(query) ||
-            username.includes(query)
-          );
-        }
-      );
-  }
-
-  if (
-    currentFilter ===
-    "online"
-  ) {
-    users =
-      users.filter(
-        user =>
-          isOnline(
-            user.id
-          )
-      );
-  }
-
-  if (
-    currentFilter ===
-    "unread"
-  ) {
-    users =
-      users.filter(
-        user =>
-          (
-            unreadCounts.get(
-              user.id
-            ) || 0
-          ) > 0
-      );
-  }
-
-  if (
-    currentFilter ===
-    "friends"
-  ) {
-    users =
-      users.filter(
-        user =>
-          isFriend(
-            user.id
-          )
-      );
-  }
-
-  if (
-    currentFilter ===
-    "recent"
-  ) {
-    users.sort(
-      (a, b) =>
-        new Date(
-          b.created_at
-        ) -
-        new Date(
-          a.created_at
-        )
-    );
-  }
-
-  return users.filter(
-    user =>
-      !blockedUserIds.has(
-        user.id
-      )
-  );
+function isBlocked(userId) {
+return state.blockedUsers.some(
+(block) => block.user_id === userId
+);
 }
 
-
-/* =========================================================
-   RENDER USERS
-   ========================================================= */
-
-function renderUsers(users) {
-  if (!usersContainer) return;
-
-  usersContainer.innerHTML =
-    "";
-
-  if (userCount) {
-    userCount.textContent =
-      `${users.length} ${
-        users.length === 1
-          ? "person"
-          : "people"
-      }`;
-  }
-
-  if (!users.length) {
-    usersContainer.innerHTML = `
-      <div
-        style="
-          padding:35px 20px;
-          text-align:center;
-          color:var(--muted);
-          font-size:11px;
-        "
-      >
-        <div
-          style="
-            font-size:25px;
-            margin-bottom:8px;
-          "
-        >
-          👥
-        </div>
-
-        No people found.
-      </div>
-    `;
-
-    return;
-  }
-
-  users.forEach(
-    user => {
-      const button =
-        document.createElement(
-          "button"
-        );
-
-      button.type =
-        "button";
-
-      button.className =
-        "user";
-
-      if (
-        selectedUser &&
-        selectedUser.id ===
-          user.id
-      ) {
-        button.classList.add(
-          "selected"
-        );
-      }
-
-      const name =
-        getUserName(user);
-
-      const initial =
-        getInitial(user);
-
-      const gender =
-        getGender(user);
-
-      const online =
-        isOnline(
-          user.id
-        );
-
-      const unread =
-        unreadCounts.get(
-          user.id
-        ) || 0;
-
-      button.innerHTML = `
-        <div class="avatar ${gender}">
-          ${escapeHTML(initial)}
-        </div>
-
-        <div class="info">
-          <strong>
-            ${escapeHTML(name)}
-          </strong>
-
-          <div class="preview">
-            @${escapeHTML(
-              user.username ||
-              "user"
-            )}
-          </div>
-        </div>
-
-        <span class="status-indicator">
-          ${
-            unread > 0
-              ? `<span class="unread-badge">${unread}</span>`
-              : online
-                ? "🟢"
-                : "⚫"
-          }
-        </span>
-      `;
-
-      button.addEventListener(
-        "click",
-        () =>
-          selectUser(user)
-      );
-
-      usersContainer.appendChild(
-        button
-      );
-    }
-  );
+function isConversationBlocked(userId) {
+return isBlocked(userId) || state.blockedUsers.some(
+(block) => block.blocked_id === userId
+);
 }
 
-
-/* =========================================================
-   SELECT USER
-   ========================================================= */
-
-async function selectUser(user) {
-  if (!user) return;
-
-  selectedUser =
-    user;
-
-  unreadCounts.delete(
-    user.id
-  );
-
-  document.body.classList.add(
-    "chat-open"
-  );
-
-  updateChatHeader();
-
-  renderUsers(
-    getFilteredUsers()
-  );
-
-  await loadMessages();
-
-  updateBlockButton();
-
-  updateChatStatus();
-
-  messageInput?.focus();
+function getUnreadCount(userId) {
+return Number(state.unreadCounts[userId] || 0);
 }
 
+function setUnreadCount(userId, count) {
+if (!userId) return;
 
-function updateChatHeader() {
-  if (!selectedUser) return;
+```
+const numericCount = Math.max(0, Number(count) || 0);
 
-  const name =
-    getUserName(
-      selectedUser
-    );
+if (numericCount === 0) {
+    delete state.unreadCounts[userId];
+} else {
+    state.unreadCounts[userId] = numericCount;
+}
+```
 
-  const initial =
-    getInitial(
-      selectedUser
-    );
-
-  const gender =
-    getGender(
-      selectedUser
-    );
-
-  if (chatName) {
-    chatName.textContent =
-      name;
-  }
-
-  if (chatAvatar) {
-    chatAvatar.textContent =
-      initial;
-
-    chatAvatar.className =
-      `chat-avatar ${gender}`;
-  }
 }
 
+function incrementUnread(userId) {
+if (!userId || userId === state.user?.id) return;
 
-function updateChatStatus() {
-  if (
-    !selectedUser ||
-    !chatStatus
-  ) {
-    return;
-  }
+```
+setUnreadCount(
+    userId,
+    getUnreadCount(userId) + 1
+);
+```
 
-  chatStatus.textContent =
-    isOnline(
-      selectedUser.id
-    )
-      ? "🟢 Online"
-      : "⚫ Offline";
 }
 
+function isNearBottom(container, threshold = 120) {
+if (!container) return true;
 
-/* =========================================================
-   LOAD MESSAGES
-   ========================================================= */
+```
+return (
+    container.scrollHeight -
+    container.scrollTop -
+    container.clientHeight
+) <= threshold;
+```
 
-async function loadMessages() {
-  if (
-    !currentUser ||
-    !selectedUser ||
-    !messagesContainer
-  ) {
-    return;
-  }
-
-  if (
-    blockedUserIds.has(
-      selectedUser.id
-    )
-  ) {
-    renderBlockedChat();
-    return;
-  }
-
-  const currentId =
-    currentUser.id;
-
-  const otherId =
-    selectedUser.id;
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("messages")
-      .select(
-        "id,sender_id,receiver_id,text,created_at"
-      )
-      .or(
-        `and(sender_id.eq.${currentId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${currentId})`
-      )
-      .order(
-        "created_at",
-        {
-          ascending: true
-        }
-      );
-
-  if (error) {
-    console.error(
-      "Messages error:",
-      error
-    );
-
-    showError(
-      "Could not load messages."
-    );
-
-    return;
-  }
-
-  renderMessages(
-    data || []
-  );
 }
 
+function scrollMessagesToBottom(force = false) {
+if (!dom.messages) return;
 
-function renderBlockedChat() {
-  if (!messagesContainer) return;
+```
+if (!force && !isNearBottom(dom.messages)) return;
 
-  messagesContainer.innerHTML = `
-    <div class="welcome">
-      <div class="welcome-logo">
-        🚫
-      </div>
+requestAnimationFrame(() => {
+    if (!dom.messages) return;
 
-      <h2>
-        User blocked
-      </h2>
+    dom.messages.scrollTop = dom.messages.scrollHeight;
+});
+```
 
-      <p>
-        You have blocked this user.
-      </p>
-
-      <div class="welcome-tip">
-        Unblock this user from Settings.
-      </div>
-    </div>
-  `;
 }
 
+function updateCharacterCount() {
+if (!dom.input || !dom.charCount) return;
 
-/* =========================================================
-   RENDER MESSAGES
-   ========================================================= */
+```
+dom.charCount.textContent =
+    `${dom.input.value.length}/2000`;
+```
 
-function renderMessages(messages) {
-  if (!messagesContainer) {
-    return;
-  }
-
-  messagesContainer.innerHTML =
-    "";
-
-  if (!messages.length) {
-    messagesContainer.innerHTML = `
-      <div class="welcome">
-        <div class="welcome-logo">
-          💬
-        </div>
-
-        <h2>
-          Start chatting
-        </h2>
-
-        <p>
-          Send a respectful message to
-          ${escapeHTML(
-            getUserName(
-              selectedUser
-            )
-          )}.
-        </p>
-
-        <div class="welcome-tip">
-          🛡️ Never share private information.
-        </div>
-      </div>
-    `;
-
-    return;
-  }
-
-  const fragment =
-    document.createDocumentFragment();
-
-  messages.forEach(
-    message => {
-      const wrapper =
-        document.createElement(
-          "div"
-        );
-
-      wrapper.className =
-        message.sender_id ===
-        currentUser.id
-          ? "msg me"
-          : "msg";
-
-      wrapper.dataset.messageId =
-        message.id;
-
-      const text =
-        document.createElement(
-          "div"
-        );
-
-      text.className =
-        "message-text";
-
-      text.textContent =
-        message.text || "";
-
-      const meta =
-        document.createElement(
-          "div"
-        );
-
-      meta.className =
-        "meta";
-
-      meta.textContent =
-        formatTime(
-          message.created_at
-        );
-
-      wrapper.appendChild(
-        text
-      );
-
-      wrapper.appendChild(
-        meta
-      );
-
-      fragment.appendChild(
-        wrapper
-      );
-    }
-  );
-
-  messagesContainer.appendChild(
-    fragment
-  );
-
-  scrollMessagesToBottom();
 }
-
-
-/* =========================================================
-   SEND MESSAGE
-   ========================================================= */
-
-function checkMessageSafety(text) {
-  const blockedWords = [
-    "suicide",
-    "rape",
-    "fuck",
-    "shit",
-    "bitch"
-  ];
-
-  const lower =
-    text.toLowerCase();
-
-  for (
-    const word of blockedWords
-  ) {
-    const pattern =
-      new RegExp(
-        `\\b${word}\\b`,
-        "i"
-      );
-
-    if (
-      pattern.test(lower)
-    ) {
-      return {
-        safe: false,
-        reason:
-          "Please keep messages respectful."
-      };
-    }
-  }
-
-  return {
-    safe: true
-  };
-}
-
-
-async function sendMessage() {
-  if (
-    !currentUser ||
-    !selectedUser ||
-    !messageInput
-  ) {
-    return;
-  }
-
-  if (
-    blockedUserIds.has(
-      selectedUser.id
-    )
-  ) {
-    showError(
-      "Cannot message a blocked user."
-    );
-
-    return;
-  }
-
-  const text =
-    messageInput.value.trim();
-
-  if (!text) return;
-
-  if (
-    text.length > 2000
-  ) {
-    showError(
-      "Message cannot exceed 2000 characters."
-    );
-
-    return;
-  }
-
-  const safety =
-    checkMessageSafety(
-      text
-    );
-
-  if (!safety.safe) {
-    showError(
-      safety.reason
-    );
-
-    return;
-  }
-
-  if (sendButton) {
-    sendButton.disabled =
-      true;
-  }
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("messages")
-      .insert({
-        sender_id:
-          currentUser.id,
-        receiver_id:
-          selectedUser.id,
-        text
-      })
-      .select()
-      .single();
-
-  if (error) {
-    console.error(
-      "Send message error:",
-      error
-    );
-
-    if (sendButton) {
-      sendButton.disabled =
-        false;
-    }
-
-    showError(
-      "Message could not be sent."
-    );
-
-    return;
-  }
-
-  messageInput.value =
-    "";
-
-  updateCharCount();
-
-  if (data) {
-    await loadMessages();
-  }
-
-  if (sendButton) {
-    sendButton.disabled =
-      false;
-  }
-
-  messageInput.focus();
-}
-
-
-/* =========================================================
-   REALTIME MESSAGES
-   ========================================================= */
-
-function subscribeToMessages() {
-  if (!currentUser) return;
-
-  if (messageChannel) {
-    supabaseClient.removeChannel(
-      messageChannel
-    );
-
-    messageChannel = null;
-  }
-
-  messageChannel =
-    supabaseClient.channel(
-      `q1-messages-${currentUser.id}`
-    );
-
-  messageChannel.on(
-    "postgres_changes",
-    {
-      event: "INSERT",
-      schema: "public",
-      table: "messages"
-    },
-    async payload => {
-      const message =
-        payload?.new;
-
-      if (!message) return;
-
-      const incoming =
-        message.receiver_id ===
-        currentUser.id;
-
-      const outgoing =
-        message.sender_id ===
-        currentUser.id;
-
-      if (
-        !incoming &&
-        !outgoing
-      ) {
-        return;
-      }
-
-      if (outgoing) {
-        return;
-      }
-
-      if (
-        blockedUserIds.has(
-          message.sender_id
-        )
-      ) {
-        return;
-      }
-
-      if (
-        selectedUser &&
-        selectedUser.id ===
-          message.sender_id
-      ) {
-        await loadMessages();
-
-        return;
-      }
-
-      const old =
-        unreadCounts.get(
-          message.sender_id
-        ) || 0;
-
-      unreadCounts.set(
-        message.sender_id,
-        old + 1
-      );
-
-      renderUsers(
-        getFilteredUsers()
-      );
-    }
-  );
-
-  messageChannel.subscribe(
-    status => {
-      console.log(
-        "Q1 message realtime:",
-        status
-      );
-
-      if (
-        status ===
-        "SUBSCRIBED"
-      ) {
-        console.log(
-          "✅ Q1 realtime connected"
-        );
-
-        setAuthStatus(
-          "Connected",
-          "success"
-        );
-      }
-    }
-  );
-}
-
-
-/* =========================================================
-   PRESENCE
-   ========================================================= */
-
-function subscribeToPresence() {
-  if (!currentUser) return;
-
-  if (presenceChannel) {
-    supabaseClient.removeChannel(
-      presenceChannel
-    );
-
-    presenceChannel = null;
-  }
-
-  presenceChannel =
-    supabaseClient.channel(
-      "q1-online-users",
-      {
-        config: {
-          presence: {
-            key:
-              currentUser.id
-          }
-        }
-      }
-    );
-
-  presenceChannel.on(
-    "presence",
-    {
-      event: "sync"
-    },
-    () => {
-      const state =
-        presenceChannel.presenceState();
-
-      onlineUsers =
-        new Set(
-          Object.keys(
-            state || {}
-          )
-        );
-
-      renderUsers(
-        getFilteredUsers()
-      );
-
-      updateChatStatus();
-    }
-  );
-
-  presenceChannel.subscribe(
-    async status => {
-      console.log(
-        "Q1 presence:",
-        status
-      );
-
-      if (
-        status ===
-        "SUBSCRIBED"
-      ) {
-        await presenceChannel.track({
-          user_id:
-            currentUser.id,
-          online_at:
-            new Date().toISOString()
-        });
-      }
-    }
-  );
-}
-
-
-/* =========================================================
-   PROFILE VIEW
-   ========================================================= */
-
-function showProfileView(user) {
-  if (
-    !profileDialog ||
-    !profileContent ||
-    !user
-  ) {
-    return;
-  }
-
-  const name =
-    getUserName(user);
-
-  const initial =
-    getInitial(user);
-
-  const gender =
-    getGender(user);
-
-  const online =
-    isOnline(
-      user.id
-    );
-
-  const friend =
-    isFriend(
-      user.id
-    );
-
-  profileContent.innerHTML = `
-    <div class="profile-view">
-
-      <div
-        class="profile-avatar ${gender}"
-      >
-        ${escapeHTML(initial)}
-      </div>
-
-      <h3>
-        ${escapeHTML(name)}
-      </h3>
-
-      <p>
-        @${escapeHTML(
-          user.username ||
-          "user"
-        )}
-      </p>
-
-      <p>
-        ${
-          online
-            ? "🟢 Online"
-            : "⚫ Offline"
-        }
-      </p>
-
-      <p>
-        ${
-          friend
-            ? "❤️ Friend"
-            : "👤 Not a friend"
-        }
-      </p>
-
-    </div>
-  `;
-
-  openDialog(
-    profileDialog
-  );
-}
-
-
-/* =========================================================
-   CHAR COUNT
-   ========================================================= */
-
-function updateCharCount() {
-  if (
-    !messageInput ||
-    !charCount
-  ) {
-    return;
-  }
-
-  charCount.textContent =
-    `${messageInput.value.length}/2000`;
-}
-
-
-/* =========================================================
-   SCROLL
-   ========================================================= */
-
-function scrollMessagesToBottom() {
-  if (!messagesContainer) {
-    return;
-  }
-
-  requestAnimationFrame(() => {
-    messagesContainer.scrollTop =
-      messagesContainer.scrollHeight;
-  });
-}
-
-
-/* =========================================================
-   DIALOG
-   ========================================================= */
-
-function openDialog(dialog) {
-  if (!dialog) return;
-
-  if (
-    typeof dialog.showModal ===
-    "function"
-  ) {
-    if (!dialog.open) {
-      dialog.showModal();
-    }
-  } else {
-    dialog.setAttribute(
-      "open",
-      ""
-    );
-  }
-}
-
 
 function closeDialog(dialog) {
-  if (!dialog) return;
+if (!dialog) return;
 
-  if (
-    typeof dialog.close ===
-    "function"
-  ) {
-    if (dialog.open) {
-      dialog.close();
-    }
-  } else {
-    dialog.removeAttribute(
-      "open"
-    );
-  }
+```
+if (typeof dialog.close === "function") {
+    try {
+        dialog.close();
+        return;
+    } catch (_) {}
 }
 
+dialog.removeAttribute("open");
+dialog.classList.remove("open", "active");
+```
 
-/* =========================================================
-   UI
-   ========================================================= */
-
-function setupUI() {
-  if (uiReady) return;
-
-  uiReady = true;
-
-  searchInput?.addEventListener(
-    "input",
-    () => {
-      renderUsers(
-        getFilteredUsers()
-      );
-    }
-  );
-
-
-  sendButton?.addEventListener(
-    "click",
-    sendMessage
-  );
-
-
-  messageInput?.addEventListener(
-    "keydown",
-    event => {
-      if (
-        event.key ===
-          "Enter" &&
-        !event.shiftKey
-      ) {
-        event.preventDefault();
-
-        sendMessage();
-      }
-    }
-  );
-
-
-  messageInput?.addEventListener(
-    "input",
-    updateCharCount
-  );
-
-
-  settingsButton?.addEventListener(
-    "click",
-    () => {
-      fillSettings();
-
-      openDialog(
-        settingsDialog
-      );
-    }
-  );
-
-
-  closeSettingsButton?.addEventListener(
-    "click",
-    () => {
-      closeDialog(
-        settingsDialog
-      );
-    }
-  );
-
-
-  saveButton?.addEventListener(
-    "click",
-    saveSettings
-  );
-
-
-  themeToggle?.addEventListener(
-    "click",
-    toggleTheme
-  );
-
-
-  blockButton?.addEventListener(
-    "click",
-    blockSelectedUser
-  );
-
-
-  blockedButton?.addEventListener(
-    "click",
-    async () => {
-      await loadBlockedUsers();
-
-      openDialog(
-        blockedDialog
-      );
-    }
-  );
-
-
-  closeBlockedButton?.addEventListener(
-    "click",
-    () => {
-      closeDialog(
-        blockedDialog
-      );
-    }
-  );
-
-
-  chatAvatar?.addEventListener(
-    "click",
-    () => {
-      if (selectedUser) {
-        showProfileView(
-          selectedUser
-        );
-      }
-    }
-  );
-
-
-  closeProfileButton?.addEventListener(
-    "click",
-    () => {
-      closeDialog(
-        profileDialog
-      );
-    }
-  );
-
-
-  document
-    .querySelectorAll(
-      ".filter[data-filter]"
-    )
-    .forEach(
-      button => {
-        button.addEventListener(
-          "click",
-          async () => {
-            document
-              .querySelectorAll(
-                ".filter[data-filter]"
-              )
-              .forEach(
-                item =>
-                  item.classList.remove(
-                    "active"
-                  )
-              );
-
-            button.classList.add(
-              "active"
-            );
-
-            currentFilter =
-              button.dataset.filter ||
-              "online";
-
-            if (
-              currentFilter ===
-              "friends"
-            ) {
-              await loadFriends();
-            }
-
-            renderUsers(
-              getFilteredUsers()
-            );
-          }
-        );
-      }
-    );
-
-
-  reportButton?.addEventListener(
-    "click",
-    () => {
-      if (!selectedUser) return;
-
-      window.alert(
-        "Report feature will be connected to Q1 moderation."
-      );
-    }
-  );
-
-
-  updateCharCount();
 }
 
+function openDialog(dialog) {
+if (!dialog) return;
+
+```
+if (typeof dialog.showModal === "function") {
+    try {
+        if (!dialog.open) {
+            dialog.showModal();
+        }
+        return;
+    } catch (_) {}
+}
+
+dialog.setAttribute("open", "");
+dialog.classList.add("open", "active");
+```
+
+}
+
+function setDialogText(element, text) {
+if (!element) return;
+
+```
+element.textContent = text;
+```
+
+}
+
+function debounce(fn, delay = 250) {
+let timer = null;
+
+```
+return (...args) => {
+    clearTimeout(timer);
+
+    timer = setTimeout(() => {
+        fn(...args);
+    }, delay);
+};
+```
+
+}
+
+function generateReadableUsername() {
+const adjectives = [
+"Vivid",
+"Neon",
+"Quantum",
+"Silent",
+"Cosmic",
+"Brave",
+"Swift",
+"Mystic",
+"Lunar",
+"Pixel",
+"Nova",
+"Clever"
+];
+
+```
+const animals = [
+    "Griffin",
+    "Fox",
+    "Panda",
+    "Wolf",
+    "Tiger",
+    "Raven",
+    "Falcon",
+    "Otter",
+    "Koala",
+    "Hawk",
+    "Dragon",
+    "Rabbit"
+];
+
+const adjective =
+    adjectives[Math.floor(Math.random() * adjectives.length)];
+
+const animal =
+    animals[Math.floor(Math.random() * animals.length)];
+
+return `${adjective}${animal}`;
+```
+
+}
+
+async function generateUniqueUsername() {
+for (let attempt = 0; attempt < 25; attempt++) {
+const candidate = generateReadableUsername();
+
+```
+    const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("id")
+        .eq("username", candidate)
+        .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+        console.warn("Username availability check failed:", error);
+        continue;
+    }
+
+    if (!data) {
+        return candidate;
+    }
+}
+
+return `QUser${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+```
+
+}
+
+function normalizeProfile(profile) {
+if (!profile) return null;
+
+```
+return {
+    ...profile,
+    display_name:
+        profile.display_name?.trim() || "",
+    username:
+        profile.username?.trim() || ""
+};
+```
+
+}
+
+function normalizeMessage(message) {
+if (!message) return null;
+
+```
+return {
+    ...message,
+    id: message.id,
+    sender_id: message.sender_id,
+    receiver_id: message.receiver_id,
+    text: message.text || "",
+    message_type: message.message_type || "text",
+    media_path: message.media_path || null,
+    created_at: message.created_at || new Date().toISOString()
+};
+```
+
+}
 
 /* =========================================================
-   START
-   ========================================================= */
+THEME
+========================================================= */
 
-async function startQ1Chat() {
-  if (appStarted) {
-    return;
-  }
+function loadTheme() {
+const savedTheme =
+localStorage.getItem("q1-theme") || "light";
 
-  appStarted = true;
+```
+state.currentTheme =
+    savedTheme === "dark" ? "dark" : "light";
 
-  try {
-    initTheme();
-    setupUI();
+document.documentElement.dataset.theme =
+    state.currentTheme;
 
-    setAuthStatus(
-      "Connecting..."
-    );
+document.body?.classList.toggle(
+    "dark",
+    state.currentTheme === "dark"
+);
+
+if (dom.themeToggle) {
+    if (
+        dom.themeToggle.type === "checkbox" ||
+        dom.themeToggle.type === "radio"
+    ) {
+        dom.themeToggle.checked =
+            state.currentTheme === "dark";
+    }
+}
+```
+
+}
+
+function applyTheme(theme) {
+state.currentTheme =
+theme === "dark" ? "dark" : "light";
+
+```
+document.documentElement.dataset.theme =
+    state.currentTheme;
+
+document.body?.classList.toggle(
+    "dark",
+    state.currentTheme === "dark"
+);
+
+localStorage.setItem(
+    "q1-theme",
+    state.currentTheme
+);
+
+if (dom.themeToggle) {
+    if (
+        dom.themeToggle.type === "checkbox" ||
+        dom.themeToggle.type === "radio"
+    ) {
+        dom.themeToggle.checked =
+            state.currentTheme === "dark";
+    }
+}
+```
+
+}
+
+/* =========================================================
+AUTH
+========================================================= */
+
+async function ensureAnonymousAuth() {
+try {
+const {
+data: sessionData,
+error: sessionError
+} = await supabaseClient.auth.getSession();
+
+```
+    if (sessionError) {
+        throw sessionError;
+    }
+
+    if (sessionData?.session?.user) {
+        state.user = sessionData.session.user;
+        return state.user;
+    }
 
     const {
-      data,
-      error
-    } =
-      await supabaseClient.auth.getSession();
+        data,
+        error
+    } = await supabaseClient.auth.signInAnonymously();
 
     if (error) {
-      throw error;
+        throw error;
     }
 
-    if (
-      data?.session?.user
-    ) {
-      currentUser =
-        data.session.user;
-    } else {
-      const result =
-        await supabaseClient.auth.signInAnonymously();
-
-      if (result.error) {
-        throw result.error;
-      }
-
-      currentUser =
-        result.data?.user;
+    if (!data?.user) {
+        throw new Error("Anonymous authentication did not return a user.");
     }
 
-    if (!currentUser) {
-      throw new Error(
-        "No authenticated user."
-      );
+    state.user = data.user;
+
+    return state.user;
+} catch (error) {
+    showError(
+        "Authentication failed. Check Supabase Auth settings.",
+        error
+    );
+
+    throw error;
+}
+```
+
+}
+
+function setupAuthListener() {
+supabaseClient.auth.onAuthStateChange(
+async (_event, session) => {
+if (!session?.user) return;
+
+```
+        if (!state.user || state.user.id !== session.user.id) {
+            state.user = session.user;
+
+            try {
+                await ensureProfile();
+                await startApplicationData();
+            } catch (error) {
+                showError(
+                    "Could not restore your Q1 Chat session.",
+                    error
+                );
+            }
+        }
+    }
+);
+```
+
+}
+
+/* =========================================================
+PROFILE
+========================================================= */
+
+async function ensureProfile() {
+if (!state.user) {
+throw new Error("No authenticated user.");
+}
+
+```
+const {
+    data: existing,
+    error: fetchError
+} = await supabaseClient
+    .from("profiles")
+    .select("*")
+    .eq("id", state.user.id)
+    .maybeSingle();
+
+if (fetchError && fetchError.code !== "PGRST116") {
+    throw fetchError;
+}
+
+if (existing) {
+    state.profile = normalizeProfile(existing);
+
+    if (!state.profile.username) {
+        const username = await generateUniqueUsername();
+
+        const {
+            data: updated,
+            error: updateError
+        } = await supabaseClient
+            .from("profiles")
+            .update({
+                username,
+                updated_at: new Date().toISOString()
+            })
+            .eq("id", state.user.id)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.warn(
+                "Could not generate username:",
+                updateError
+            );
+        } else {
+            state.profile = normalizeProfile(updated);
+        }
     }
 
-    await loadOrCreateProfile();
+    return state.profile;
+}
 
-    await loadBlockedUsers();
+const username = await generateUniqueUsername();
+
+const newProfile = {
+    id: state.user.id,
+    username,
+    display_name: "",
+    gender: null,
+    avatar_url: null
+};
+
+const {
+    data,
+    error
+} = await supabaseClient
+    .from("profiles")
+    .insert(newProfile)
+    .select()
+    .single();
+
+if (error) {
+    if (error.code === "23505") {
+        const retryUsername = await generateUniqueUsername();
+
+        const retry = await supabaseClient
+            .from("profiles")
+            .insert({
+                ...newProfile,
+                username: retryUsername
+            })
+            .select()
+            .single();
+
+        if (retry.error) {
+            throw retry.error;
+        }
+
+        state.profile = normalizeProfile(retry.data);
+
+        return state.profile;
+    }
+
+    throw error;
+}
+
+state.profile = normalizeProfile(data);
+
+return state.profile;
+```
+
+}
+
+function renderOwnProfile() {
+if (!state.profile) return;
+
+```
+setImageSource(
+    dom.myProfileAvatar,
+    state.profile
+);
+
+if (dom.displayName) {
+    dom.displayName.value =
+        state.profile.display_name || "";
+}
+
+if (dom.gender) {
+    dom.gender.value =
+        state.profile.gender || "";
+}
+```
+
+}
+
+async function saveProfile() {
+if (!state.user) return;
+
+```
+const displayName =
+    dom.displayName?.value.trim() || "";
+
+const gender =
+    dom.gender?.value || null;
+
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .update({
+            display_name: displayName,
+            gender,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", state.user.id)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    state.profile = normalizeProfile(data);
+
+    renderOwnProfile();
+    renderUsers();
+
+    if (state.selectedUser) {
+        renderChatHeader();
+    }
+
+    setStatus("Profile saved.");
+} catch (error) {
+    showError(
+        "Could not save your profile.",
+        error
+    );
+}
+```
+
+}
+
+async function uploadProfilePhoto(file) {
+if (!file || !state.user) return;
+
+```
+const validation = validateImageFile(file);
+
+if (!validation.valid) {
+    showError(validation.message);
+    return;
+}
+
+try {
+    setStatus("Uploading profile photo...");
+
+    const extension =
+        getSafeExtension(file.name) || "jpg";
+
+    const path =
+        `${state.user.id}/profile-${crypto.randomUUID()}.${extension}`;
+
+    const {
+        error: uploadError
+    } = await supabaseClient
+        .storage
+        .from("profile-photos")
+        .upload(path, file, {
+            upsert: false,
+            contentType: file.type,
+            cacheControl: "3600"
+        });
+
+    if (uploadError) {
+        throw uploadError;
+    }
+
+    const {
+        data: publicData
+    } = supabaseClient
+        .storage
+        .from("profile-photos")
+        .getPublicUrl(path);
+
+    const avatarUrl =
+        publicData?.publicUrl || null;
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .update({
+            avatar_url: avatarUrl,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", state.user.id)
+        .select()
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    state.profile = normalizeProfile(data);
+
+    renderOwnProfile();
+    renderUsers();
+
+    if (state.selectedUser) {
+        renderChatHeader();
+    }
+
+    setStatus("Profile photo updated.");
+} catch (error) {
+    showError(
+        "Profile photo upload failed.",
+        error
+    );
+}
+```
+
+}
+
+/* =========================================================
+FRIENDS
+========================================================= */
+
+async function loadFriends() {
+if (!state.user) return;
+
+```
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("friends")
+        .select("*")
+        .or(
+            `requester_id.eq.${state.user.id},receiver_id.eq.${state.user.id}`
+        );
+
+    if (error) {
+        if (
+            error.code === "42P01" ||
+            error.code === "PGRST205"
+        ) {
+            console.warn(
+                "Friends table is not available."
+            );
+
+            state.friends = [];
+            state.incomingRequests = [];
+            state.outgoingRequests = [];
+
+            return;
+        }
+
+        throw error;
+    }
+
+    state.friends = [];
+    state.incomingRequests = [];
+    state.outgoingRequests = [];
+
+    for (const row of data || []) {
+        const otherId =
+            row.requester_id === state.user.id
+                ? row.receiver_id
+                : row.requester_id;
+
+        const normalized = {
+            ...row,
+            user_id: otherId
+        };
+
+        if (row.status === "accepted") {
+            state.friends.push(normalized);
+        } else if (
+            row.status === "pending" &&
+            row.receiver_id === state.user.id
+        ) {
+            state.incomingRequests.push(normalized);
+        } else if (
+            row.status === "pending" &&
+            row.requester_id === state.user.id
+        ) {
+            state.outgoingRequests.push(normalized);
+        }
+    }
+
+    renderUsers();
+
+    if (state.selectedUser) {
+        renderFriendButton();
+    }
+} catch (error) {
+    showError(
+        "Could not load friends.",
+        error
+    );
+}
+```
+
+}
+
+async function findFriendRow(userId) {
+if (!state.user || !userId) return null;
+
+```
+const {
+    data,
+    error
+} = await supabaseClient
+    .from("friends")
+    .select("*")
+    .or(
+        `and(requester_id.eq.${state.user.id},receiver_id.eq.${userId}),and(requester_id.eq.${userId},receiver_id.eq.${state.user.id})`
+    )
+    .maybeSingle();
+
+if (error && error.code !== "PGRST116") {
+    throw error;
+}
+
+return data || null;
+```
+
+}
+
+async function sendFriendRequest(userId) {
+if (!state.user || !userId) return;
+
+```
+try {
+    const existing = await findFriendRow(userId);
+
+    if (existing) {
+        if (existing.status === "accepted") {
+            setStatus("You are already friends.");
+            return;
+        }
+
+        if (existing.status === "pending") {
+            setStatus("Friend request already exists.");
+            return;
+        }
+    }
+
+    const {
+        error
+    } = await supabaseClient
+        .from("friends")
+        .insert({
+            requester_id: state.user.id,
+            receiver_id: userId,
+            status: "pending"
+        });
+
+    if (error) throw error;
 
     await loadFriends();
 
-    await loadUsers();
+    renderFriendButton();
 
-    subscribeToPresence();
-
-    subscribeToMessages();
-
-    setAuthStatus(
-      "Connected",
-      "success"
+    setStatus("Friend request sent.");
+} catch (error) {
+    showError(
+        "Could not send friend request.",
+        error
     );
+}
+```
 
-    console.log(
-      "✅ Q1 Chat started successfully"
-    );
-
-  } catch (error) {
-    console.error(
-      "Q1 startup error:",
-      error
-    );
-
-    setAuthStatus(
-      "Connection failed",
-      "error"
-    );
-
-    if (
-      chatStatus
-    ) {
-      chatStatus.textContent =
-        "❌ Could not connect to Q1.";
-    }
-  }
 }
 
+async function acceptFriendRequest(userId) {
+if (!state.user || !userId) return;
+
+```
+try {
+    const row = await findFriendRow(userId);
+
+    if (!row) {
+        throw new Error("Friend request was not found.");
+    }
+
+    const {
+        error
+    } = await supabaseClient
+        .from("friends")
+        .update({
+            status: "accepted",
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", row.id);
+
+    if (error) throw error;
+
+    await loadFriends();
+
+    renderFriendButton();
+
+    setStatus("Friend request accepted.");
+} catch (error) {
+    showError(
+        "Could not accept friend request.",
+        error
+    );
+}
+```
+
+}
+
+async function rejectFriendRequest(userId) {
+if (!state.user || !userId) return;
+
+```
+try {
+    const row = await findFriendRow(userId);
+
+    if (!row) return;
+
+    const {
+        error
+    } = await supabaseClient
+        .from("friends")
+        .delete()
+        .eq("id", row.id);
+
+    if (error) throw error;
+
+    await loadFriends();
+
+    renderFriendButton();
+
+    setStatus("Friend request rejected.");
+} catch (error) {
+    showError(
+        "Could not reject friend request.",
+        error
+    );
+}
+```
+
+}
+
+async function removeFriend(userId) {
+if (!state.user || !userId) return;
+
+```
+try {
+    const row = await findFriendRow(userId);
+
+    if (!row) return;
+
+    const {
+        error
+    } = await supabaseClient
+        .from("friends")
+        .delete()
+        .eq("id", row.id);
+
+    if (error) throw error;
+
+    await loadFriends();
+
+    renderFriendButton();
+
+    setStatus("Friend removed.");
+} catch (error) {
+    showError(
+        "Could not remove friend.",
+        error
+    );
+}
+```
+
+}
+
+function renderFriendButton() {
+if (!dom.addFriend || !state.selectedUser) return;
+
+```
+const userId = state.selectedUser.id;
+
+dom.addFriend.disabled = false;
+dom.addFriend.dataset.userId = userId;
+
+if (isFriend(userId)) {
+    dom.addFriend.textContent = "✓ Friends";
+    dom.addFriend.classList.add("is-friend");
+    return;
+}
+
+if (hasIncomingRequest(userId)) {
+    dom.addFriend.textContent = "Accept Friend";
+    dom.addFriend.classList.remove("is-friend");
+    return;
+}
+
+if (hasOutgoingRequest(userId)) {
+    dom.addFriend.textContent = "⏳ Request Sent";
+    dom.addFriend.classList.remove("is-friend");
+    return;
+}
+
+dom.addFriend.textContent = "❤️ Add Friend";
+dom.addFriend.classList.remove("is-friend");
+```
+
+}
+
+async function handleFriendButton() {
+if (!state.selectedUser) return;
+
+```
+const userId = state.selectedUser.id;
+
+if (isFriend(userId)) {
+    await removeFriend(userId);
+    return;
+}
+
+if (hasIncomingRequest(userId)) {
+    await acceptFriendRequest(userId);
+    return;
+}
+
+if (hasOutgoingRequest(userId)) {
+    setStatus("Friend request is already pending.");
+    return;
+}
+
+await sendFriendRequest(userId);
+```
+
+}
 
 /* =========================================================
-   AUTH STATE
-   ========================================================= */
+BLOCK SYSTEM
+========================================================= */
 
-supabaseClient.auth.onAuthStateChange(
-  async (
-    _event,
-    session
-  ) => {
-    if (!session?.user) {
-      return;
+async function loadBlockedUsers() {
+if (!state.user) return;
+
+```
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("blocks")
+        .select("*")
+        .eq("blocker_id", state.user.id);
+
+    if (error) {
+        if (
+            error.code === "42P01" ||
+            error.code === "PGRST205"
+        ) {
+            state.blockedUsers = [];
+            return;
+        }
+
+        throw error;
+    }
+
+    state.blockedUsers = data || [];
+
+    renderUsers();
+
+    if (state.selectedUser) {
+        renderBlockButton();
+    }
+} catch (error) {
+    showError(
+        "Could not load blocked users.",
+        error
+    );
+}
+```
+
+}
+
+async function blockUser(userId) {
+if (!state.user || !userId) return;
+
+```
+if (userId === state.user.id) return;
+
+try {
+    const {
+        error
+    } = await supabaseClient
+        .from("blocks")
+        .upsert(
+            {
+                blocker_id: state.user.id,
+                blocked_id: userId
+            },
+            {
+                onConflict: "blocker_id,blocked_id"
+            }
+        );
+
+    if (error) throw error;
+
+    state.blockedUsers.push({
+        blocker_id: state.user.id,
+        blocked_id: userId,
+        user_id: userId
+    });
+
+    state.blockedUsers = [
+        ...new Map(
+            state.blockedUsers.map((row) => [
+                `${row.blocker_id}:${row.blocked_id}`,
+                row
+            ])
+        ).values()
+    ];
+
+    renderBlockButton();
+    renderUsers();
+
+    setStatus("User blocked.");
+} catch (error) {
+    showError(
+        "Could not block this user.",
+        error
+    );
+}
+```
+
+}
+
+async function unblockUser(userId) {
+if (!state.user || !userId) return;
+
+```
+try {
+    const {
+        error
+    } = await supabaseClient
+        .from("blocks")
+        .delete()
+        .eq("blocker_id", state.user.id)
+        .eq("blocked_id", userId);
+
+    if (error) throw error;
+
+    state.blockedUsers =
+        state.blockedUsers.filter(
+            (row) =>
+                row.blocked_id !== userId &&
+                row.user_id !== userId
+        );
+
+    renderBlockButton();
+    renderUsers();
+
+    setStatus("User unblocked.");
+} catch (error) {
+    showError(
+        "Could not unblock this user.",
+        error
+    );
+}
+```
+
+}
+
+function renderBlockButton() {
+if (!dom.block || !state.selectedUser) return;
+
+```
+const blocked = isBlocked(
+    state.selectedUser.id
+);
+
+dom.block.textContent =
+    blocked ? "✓ Unblock" : "🚫 Block";
+```
+
+}
+
+/* =========================================================
+REPORT
+========================================================= */
+
+async function reportUser(userId) {
+if (!state.user || !userId) return;
+
+```
+const reason = window.prompt(
+    "Why are you reporting this user?",
+    "Inappropriate or unsafe behavior"
+);
+
+if (!reason) return;
+
+try {
+    const payload = {
+        reporter_id: state.user.id,
+        reported_id: userId,
+        reason: reason.trim()
+    };
+
+    const {
+        error
+    } = await supabaseClient
+        .from("reports")
+        .insert(payload);
+
+    if (error) {
+        if (
+            error.code === "42P01" ||
+            error.code === "PGRST205"
+        ) {
+            throw new Error(
+                "Reports table is not configured in Supabase."
+            );
+        }
+
+        throw error;
+    }
+
+    setStatus("Report submitted. Thank you.");
+} catch (error) {
+    showError(
+        "Could not submit report.",
+        error
+    );
+}
+```
+
+}
+
+/* =========================================================
+PRESENCE
+========================================================= */
+
+async function startPresence() {
+if (!state.user || state.presenceStarted) {
+return;
+}
+
+```
+if (state.channels.presence) {
+    try {
+        await supabaseClient.removeChannel(
+            state.channels.presence
+        );
+    } catch (_) {}
+
+    state.channels.presence = null;
+}
+
+const channel =
+    supabaseClient.channel(
+        "q1-online-users",
+        {
+            config: {
+                presence: {
+                    key: state.user.id
+                }
+            }
+        }
+    );
+
+channel
+    .on(
+        "presence",
+        {
+            event: "sync"
+        },
+        () => {
+            const presenceState =
+                channel.presenceState();
+
+            const onlineIds =
+                new Set();
+
+            Object.keys(
+                presenceState || {}
+            ).forEach((key) => {
+                if (isValidUUID(key)) {
+                    onlineIds.add(key);
+                }
+            });
+
+            state.onlineUsers =
+                onlineIds;
+
+            renderUsers();
+
+            if (state.selectedUser) {
+                renderChatHeader();
+            }
+        }
+    )
+    .on(
+        "presence",
+        {
+            event: "join"
+        },
+        ({ key }) => {
+            if (key) {
+                state.onlineUsers.add(key);
+                renderUsers();
+
+                if (
+                    state.selectedUser?.id === key
+                ) {
+                    renderChatHeader();
+                }
+            }
+        }
+    )
+    .on(
+        "presence",
+        {
+            event: "leave"
+        },
+        ({ key }) => {
+            if (key) {
+                state.onlineUsers.delete(key);
+                renderUsers();
+
+                if (
+                    state.selectedUser?.id === key
+                ) {
+                    renderChatHeader();
+                }
+            }
+        }
+    );
+
+const status =
+    await new Promise((resolve) => {
+        let finished = false;
+
+        const timeout =
+            setTimeout(() => {
+                if (!finished) {
+                    finished = true;
+                    resolve("TIMED_OUT");
+                }
+            }, 10000);
+
+        channel.subscribe(
+            async (subscribeStatus) => {
+                if (
+                    subscribeStatus === "SUBSCRIBED"
+                ) {
+                    clearTimeout(timeout);
+
+                    try {
+                        await channel.track({
+                            user_id: state.user.id,
+                            online_at:
+                                new Date().toISOString()
+                        });
+                    } catch (error) {
+                        console.warn(
+                            "Presence track failed:",
+                            error
+                        );
+                    }
+
+                    if (!finished) {
+                        finished = true;
+                        resolve("SUBSCRIBED");
+                    }
+                } else if (
+                    subscribeStatus === "CHANNEL_ERROR" ||
+                    subscribeStatus === "TIMED_OUT" ||
+                    subscribeStatus === "CLOSED"
+                ) {
+                    clearTimeout(timeout);
+
+                    if (!finished) {
+                        finished = true;
+                        resolve(subscribeStatus);
+                    }
+                }
+            }
+        );
+    });
+
+if (status === "SUBSCRIBED") {
+    state.channels.presence = channel;
+    state.presenceStarted = true;
+
+    console.log("Q1 presence: SUBSCRIBED");
+    return;
+}
+
+console.warn(
+    "Q1 presence subscription:",
+    status
+);
+```
+
+}
+
+async function stopPresence() {
+state.presenceStarted = false;
+
+```
+if (state.channels.presence) {
+    try {
+        await supabaseClient.removeChannel(
+            state.channels.presence
+        );
+    } catch (_) {}
+
+    state.channels.presence = null;
+}
+
+state.onlineUsers.clear();
+```
+
+}
+
+/* =========================================================
+USERS
+========================================================= */
+
+async function loadUsers() {
+if (!state.user || state.loadingUsers) return;
+
+```
+state.loadingUsers = true;
+
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .neq("id", state.user.id)
+        .order("updated_at", {
+            ascending: false,
+            nullsFirst: false
+        });
+
+    if (error) throw error;
+
+    state.users =
+        (data || [])
+            .map(normalizeProfile)
+            .filter(Boolean);
+
+    state.users.sort(
+        (a, b) =>
+            getDisplayName(a).localeCompare(
+                getDisplayName(b)
+            )
+    );
+
+    renderUsers();
+} catch (error) {
+    showError(
+        "Could not load people.",
+        error
+    );
+} finally {
+    state.loadingUsers = false;
+}
+```
+
+}
+
+function userMatchesSearch(user) {
+if (!state.searchTerm) return true;
+
+```
+const term =
+    state.searchTerm.toLowerCase();
+
+const displayName =
+    getDisplayName(user).toLowerCase();
+
+const username =
+    getUsername(user).toLowerCase();
+
+return (
+    displayName.includes(term) ||
+    username.includes(term)
+);
+```
+
+}
+
+function userMatchesFilter(user) {
+switch (state.activeFilter) {
+case "online":
+return isOnline(user.id);
+
+```
+    case "unread":
+        return getUnreadCount(user.id) > 0;
+
+    case "friends":
+        return isFriend(user.id);
+
+    case "recent":
+        return true;
+
+    case "all":
+    default:
+        return true;
+}
+```
+
+}
+
+function getSortedFilteredUsers() {
+let users =
+state.users.filter(user =>
+userMatchesSearch(user) &&
+userMatchesFilter(user)
+);
+
+```
+if (state.activeFilter === "recent") {
+    users.sort((a, b) =>
+        formatRecentTime(b.updated_at) -
+        formatRecentTime(a.updated_at)
+    );
+} else {
+    users.sort((a, b) => {
+        const unreadDifference =
+            getUnreadCount(b.id) -
+            getUnreadCount(a.id);
+
+        if (unreadDifference !== 0) {
+            return unreadDifference;
+        }
+
+        const onlineDifference =
+            Number(isOnline(b.id)) -
+            Number(isOnline(a.id));
+
+        if (onlineDifference !== 0) {
+            return onlineDifference;
+        }
+
+        return getDisplayName(a)
+            .localeCompare(
+                getDisplayName(b)
+            );
+    });
+}
+
+return users;
+```
+
+}
+
+function renderUsers() {
+if (!dom.users) return;
+
+```
+const users =
+    getSortedFilteredUsers();
+
+state.filteredUsers = users;
+
+if (dom.userCount) {
+    dom.userCount.textContent =
+        String(state.users.length);
+}
+
+if (!users.length) {
+    dom.users.innerHTML = `
+        <div class="empty-users">
+            No people found.
+        </div>
+    `;
+    return;
+}
+
+dom.users.innerHTML =
+    users.map(user => {
+        const selected =
+            state.selectedUser?.id === user.id;
+
+        const online =
+            isOnline(user.id);
+
+        const unread =
+            getUnreadCount(user.id);
+
+        const friend =
+            isFriend(user.id);
+
+        return `
+            <button
+                type="button"
+                class="user-item ${selected ? "selected" : ""}"
+                data-user-id="${escapeAttribute(user.id)}"
+            >
+                <span class="user-avatar-wrap">
+                    <img
+                        class="user-avatar"
+                        src="${escapeAttribute(getAvatar(user))}"
+                        alt="${escapeAttribute(getDisplayName(user))}"
+                        loading="lazy"
+                    >
+                    <span
+                        class="presence-dot ${online ? "online" : "offline"}"
+                        aria-label="${online ? "Online" : "Offline"}"
+                    ></span>
+                </span>
+
+                <span class="user-item-content">
+                    <span class="user-item-top">
+                        <strong>
+                            ${escapeHTML(getDisplayName(user))}
+                        </strong>
+
+                        ${
+                            unread > 0
+                                ? `<span class="unread-count">${unread}</span>`
+                                : ""
+                        }
+                    </span>
+
+                    <span class="user-username">
+                        @${escapeHTML(getUsername(user))}
+                    </span>
+
+                    <span class="user-meta">
+                        ${
+                            online
+                                ? "Online"
+                                : "Offline"
+                        }
+
+                        ${
+                            friend
+                                ? " • Friends"
+                                : ""
+                        }
+                    </span>
+                </span>
+            </button>
+        `;
+    }).join("");
+```
+
+}
+
+async function selectUser(userId) {
+if (!userId || !state.user) return;
+
+```
+const user =
+    state.users.find(
+        item => item.id === userId
+    );
+
+if (!user) return;
+
+state.selectedUser = user;
+
+setUnreadCount(userId, 0);
+
+renderUsers();
+renderChatHeader();
+renderFriendButton();
+renderBlockButton();
+
+await loadMessages(userId);
+
+if (dom.input) {
+    dom.input.focus();
+}
+
+document.body.classList.add(
+    "chat-open"
+);
+
+scrollMessagesToBottom(true);
+```
+
+}
+
+/* =========================================================
+MESSAGES
+========================================================= */
+
+function isOwnMessage(message) {
+return (
+message.sender_id ===
+state.user?.id
+);
+}
+
+function messagesForSelectedUser() {
+if (!state.selectedUser) return [];
+
+```
+const otherId =
+    state.selectedUser.id;
+
+return state.messages.filter(
+    message =>
+        (
+            message.sender_id === state.user.id &&
+            message.receiver_id === otherId
+        ) ||
+        (
+            message.sender_id === otherId &&
+            message.receiver_id === state.user.id
+        )
+);
+```
+
+}
+
+async function loadMessages(userId) {
+if (!state.user || !userId) return;
+
+```
+state.loadingMessages = true;
+
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("messages")
+        .select("*")
+        .or(
+            `and(sender_id.eq.${state.user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${state.user.id})`
+        )
+        .order("created_at", {
+            ascending: true
+        });
+
+    if (error) throw error;
+
+    state.messages =
+        (data || [])
+            .map(normalizeMessage)
+            .filter(Boolean);
+
+    renderMessages();
+    scrollMessagesToBottom(true);
+} catch (error) {
+    showError(
+        "Could not load messages.",
+        error
+    );
+
+    if (dom.messages) {
+        dom.messages.innerHTML = `
+            <div class="message-error">
+                Could not load messages.
+            </div>
+        `;
+    }
+} finally {
+    state.loadingMessages = false;
+}
+```
+
+}
+
+function messageExists(messageId) {
+return state.messages.some(
+message => message.id === messageId
+);
+}
+
+function addMessageToState(message) {
+if (!message?.id) return false;
+
+```
+if (messageExists(message.id)) {
+    return false;
+}
+
+state.messages.push(
+    normalizeMessage(message)
+);
+
+state.messages.sort(
+    (a, b) =>
+        new Date(a.created_at) -
+        new Date(b.created_at)
+);
+
+return true;
+```
+
+}
+
+function renderMessages() {
+if (!dom.messages) return;
+
+```
+const conversation =
+    messagesForSelectedUser();
+
+if (!state.selectedUser) {
+    dom.messages.innerHTML = `
+        <div class="empty-chat">
+            Select someone to start chatting.
+        </div>
+    `;
+    return;
+}
+
+if (!conversation.length) {
+    dom.messages.innerHTML = `
+        <div class="empty-chat">
+            <strong>Start a conversation</strong>
+            <span>Send a message to ${escapeHTML(getDisplayName(state.selectedUser))}.</span>
+        </div>
+    `;
+    return;
+}
+
+dom.messages.innerHTML =
+    conversation.map(renderMessageHTML).join("");
+```
+
+}
+
+function renderMessageHTML(message) {
+const own = isOwnMessage(message);
+
+```
+let body = "";
+
+if (message.message_type === "image") {
+    body = `
+        <div class="message-media">
+            <img
+                class="chat-image"
+                data-media-path="${escapeAttribute(message.media_path || "")}"
+                alt="Shared image"
+                loading="lazy"
+            >
+        </div>
+    `;
+} else if (message.message_type === "video") {
+    body = `
+        <div class="message-media">
+            <video
+                class="chat-video"
+                data-media-path="${escapeAttribute(message.media_path || "")}"
+                controls
+                preload="metadata"
+            ></video>
+        </div>
+    `;
+} else if (message.message_type === "link") {
+    const url =
+        sanitizeUrl(message.text);
+
+    body = url
+        ? `
+            <a
+                class="chat-link"
+                href="${escapeAttribute(url)}"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                ${escapeHTML(message.text)}
+            </a>
+        `
+        : escapeHTML(message.text);
+} else {
+    body =
+        escapeHTML(message.text)
+            .replace(/\n/g, "<br>");
+}
+
+return `
+    <div
+        class="message-row ${own ? "own" : "other"}"
+        data-message-id="${escapeAttribute(message.id)}"
+    >
+        <div class="message-bubble">
+            ${body}
+            <time class="message-time">
+                ${escapeHTML(formatTime(message.created_at))}
+            </time>
+        </div>
+    </div>
+`;
+```
+
+}
+
+function sanitizeUrl(value) {
+if (!value) return null;
+
+```
+let candidate =
+    String(value).trim();
+
+if (
+    !candidate.startsWith("http://") &&
+    !candidate.startsWith("https://")
+) {
+    candidate =
+        `https://${candidate}`;
+}
+
+try {
+    const url =
+        new URL(candidate);
+
+    if (
+        url.protocol !== "http:" &&
+        url.protocol !== "https:"
+    ) {
+        return null;
+    }
+
+    return url.href;
+} catch (_) {
+    return null;
+}
+```
+
+}
+
+async function resolveMediaUrl(path) {
+if (!path) return null;
+
+```
+if (
+    path.startsWith("http://") ||
+    path.startsWith("https://")
+) {
+    return path;
+}
+
+const {
+    data,
+    error
+} = await supabaseClient
+    .storage
+    .from("chat-media")
+    .createSignedUrl(
+        path,
+        60 * 60
+    );
+
+if (error) {
+    console.warn(
+        "Signed URL creation failed:",
+        error
+    );
+
+    return null;
+}
+
+return data?.signedUrl || null;
+```
+
+}
+
+async function hydrateMediaMessages() {
+if (!dom.messages) return;
+
+```
+const images =
+    dom.messages.querySelectorAll(
+        "img[data-media-path]"
+    );
+
+const videos =
+    dom.messages.querySelectorAll(
+        "video[data-media-path]"
+    );
+
+for (const image of images) {
+    const path =
+        image.dataset.mediaPath;
+
+    const url =
+        await resolveMediaUrl(path);
+
+    if (url) {
+        image.src = url;
+    } else {
+        image.alt =
+            "Media unavailable";
+    }
+}
+
+for (const video of videos) {
+    const path =
+        video.dataset.mediaPath;
+
+    const url =
+        await resolveMediaUrl(path);
+
+    if (url) {
+        video.src = url;
+    }
+}
+```
+
+}
+
+async function sendTextMessage() {
+if (!state.user || !state.selectedUser) return;
+
+```
+const text =
+    dom.input?.value.trim() || "";
+
+if (!text) return;
+
+if (text.length > 2000) {
+    showError(
+        "Message is too long. Maximum 2000 characters."
+    );
+    return;
+}
+
+if (
+    isConversationBlocked(
+        state.selectedUser.id
+    )
+) {
+    showError(
+        "You cannot message this user while blocked."
+    );
+    return;
+}
+
+if (state.sendingMessage) return;
+
+state.sendingMessage = true;
+
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("messages")
+        .insert({
+            sender_id: state.user.id,
+            receiver_id: state.selectedUser.id,
+            text,
+            message_type: "text"
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    addMessageToState(
+        normalizeMessage(data)
+    );
+
+    renderMessages();
+    scrollMessagesToBottom(true);
+
+    dom.input.value = "";
+    updateCharacterCount();
+} catch (error) {
+    showError(
+        "Message could not be sent.",
+        error
+    );
+} finally {
+    state.sendingMessage = false;
+}
+```
+
+}
+
+/* =========================================================
+MEDIA
+========================================================= */
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = [
+"image/jpeg",
+"image/png",
+"image/webp",
+"image/gif"
+];
+
+const ALLOWED_VIDEO_TYPES = [
+"video/mp4",
+"video/webm",
+"video/quicktime"
+];
+
+function getSafeExtension(filename = "") {
+const match =
+filename.toLowerCase().match(
+/.([a-z0-9]+)$/
+);
+
+```
+if (!match) return "";
+
+const extension =
+    match[1];
+
+const allowed = [
+    "jpg",
+    "jpeg",
+    "png",
+    "webp",
+    "gif",
+    "mp4",
+    "webm",
+    "mov"
+];
+
+return allowed.includes(extension)
+    ? extension
+    : "";
+```
+
+}
+
+function validateImageFile(file) {
+if (!file) {
+return {
+valid: false,
+message: "No image selected."
+};
+}
+
+```
+if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return {
+        valid: false,
+        message: "Only JPG, PNG, WEBP or GIF images are allowed."
+    };
+}
+
+if (file.size > MAX_IMAGE_SIZE) {
+    return {
+        valid: false,
+        message: "Image must be 10 MB or smaller."
+    };
+}
+
+return {
+    valid: true
+};
+```
+
+}
+
+function validateVideoFile(file) {
+if (!file) {
+return {
+valid: false,
+message: "No video selected."
+};
+}
+
+```
+if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+    return {
+        valid: false,
+        message: "Only MP4, WebM or MOV videos are allowed."
+    };
+}
+
+if (file.size > MAX_VIDEO_SIZE) {
+    return {
+        valid: false,
+        message: "Video must be 50 MB or smaller."
+    };
+}
+
+return {
+    valid: true
+};
+```
+
+}
+
+async function canShareMedia() {
+if (!state.selectedUser) {
+showError(
+"Select a person first."
+);
+return false;
+}
+
+```
+if (
+    !isFriend(
+        state.selectedUser.id
+    )
+) {
+    showError(
+        "Only accepted friends can share images and videos."
+    );
+    return false;
+}
+
+if (
+    isConversationBlocked(
+        state.selectedUser.id
+    )
+) {
+    showError(
+        "You cannot share media while this user is blocked."
+    );
+    return false;
+}
+
+return true;
+```
+
+}
+
+async function uploadChatMedia(file, type) {
+if (!state.user || !state.selectedUser) return;
+
+```
+if (!(await canShareMedia())) {
+    return;
+}
+
+const validation =
+    type === "image"
+        ? validateImageFile(file)
+        : validateVideoFile(file);
+
+if (!validation.valid) {
+    showError(validation.message);
+    return;
+}
+
+if (state.uploadingMedia) return;
+
+state.uploadingMedia = true;
+
+try {
+    setStatus(
+        `Uploading ${type}...`
+    );
+
+    const extension =
+        getSafeExtension(file.name);
+
+    if (!extension) {
+        throw new Error(
+            "Unsupported file extension."
+        );
+    }
+
+    const path =
+        `${state.user.id}/${state.selectedUser.id}/${crypto.randomUUID()}.${extension}`;
+
+    const {
+        error: uploadError
+    } = await supabaseClient
+        .storage
+        .from("chat-media")
+        .upload(
+            path,
+            file,
+            {
+                upsert: false,
+                contentType: file.type,
+                cacheControl: "3600"
+            }
+        );
+
+    if (uploadError) {
+        throw uploadError;
+    }
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("messages")
+        .insert({
+            sender_id: state.user.id,
+            receiver_id: state.selectedUser.id,
+            text: "",
+            message_type: type,
+            media_path: path
+        })
+        .select()
+        .single();
+
+    if (error) {
+        try {
+            await supabaseClient
+                .storage
+                .from("chat-media")
+                .remove([path]);
+        } catch (_) {}
+
+        throw error;
+    }
+
+    addMessageToState(
+        normalizeMessage(data)
+    );
+
+    renderMessages();
+    await hydrateMediaMessages();
+
+    scrollMessagesToBottom(true);
+
+    setStatus(
+        `${type === "image" ? "Image" : "Video"} sent.`
+    );
+} catch (error) {
+    showError(
+        `Could not upload ${type}.`,
+        error
+    );
+} finally {
+    state.uploadingMedia = false;
+}
+```
+
+}
+
+async function sendLinkMessage() {
+if (!state.user || !state.selectedUser) return;
+
+```
+const input =
+    window.prompt(
+        "Paste a link to send:"
+    );
+
+if (!input) return;
+
+const url =
+    sanitizeUrl(input);
+
+if (!url) {
+    showError(
+        "Please enter a valid HTTP or HTTPS link."
+    );
+    return;
+}
+
+if (
+    isConversationBlocked(
+        state.selectedUser.id
+    )
+) {
+    showError(
+        "You cannot message this user while blocked."
+    );
+    return;
+}
+
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("messages")
+        .insert({
+            sender_id: state.user.id,
+            receiver_id: state.selectedUser.id,
+            text: url,
+            message_type: "link"
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    addMessageToState(
+        normalizeMessage(data)
+    );
+
+    renderMessages();
+    scrollMessagesToBottom(true);
+} catch (error) {
+    showError(
+        "Could not send link.",
+        error
+    );
+}
+```
+
+}
+
+/* =========================================================
+PRIVATE CHAT
+========================================================= */
+
+async function hashPIN(pin) {
+const encoder =
+new TextEncoder();
+
+```
+const data =
+    encoder.encode(pin);
+
+const hash =
+    await crypto.subtle.digest(
+        "SHA-256",
+        data
+    );
+
+return Array.from(
+    new Uint8Array(hash)
+)
+    .map(
+        byte =>
+            byte.toString(16).padStart(2, "0")
+    )
+    .join("");
+```
+
+}
+
+async function setupPrivateChatPin() {
+if (!state.user || !dom.privateChatPin) return;
+
+```
+const pin =
+    dom.privateChatPin.value.trim();
+
+if (!/^\d{4,12}$/.test(pin)) {
+    showError(
+        "PIN must contain 4 to 12 digits."
+    );
+    return;
+}
+
+try {
+    const pinHash =
+        await hashPIN(pin);
+
+    /*
+     * The preferred schema stores only the hash:
+     * private_chat_pin_hash
+     *
+     * If the column/table is not installed yet,
+     * this operation will fail rather than pretending
+     * that a PIN was saved.
+     */
+
+    const {
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .update({
+            private_chat_pin_hash: pinHash,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", state.user.id);
+
+    if (error) {
+        throw error;
+    }
+
+    state.privateUnlocked = true;
+
+    if (dom.privateChatStatus) {
+        dom.privateChatStatus.textContent =
+            "Private Chat PIN is configured.";
+    }
+
+    setStatus(
+        "Private Chat PIN saved."
+    );
+
+    dom.privateChatPin.value = "";
+} catch (error) {
+    showError(
+        "Could not save Private Chat PIN. Make sure the private chat SQL migration is installed.",
+        error
+    );
+}
+```
+
+}
+
+async function unlockPrivateChat() {
+if (!state.user || !dom.privateChatPin) return;
+
+```
+const pin =
+    dom.privateChatPin.value.trim();
+
+if (!/^\d{4,12}$/.test(pin)) {
+    showError(
+        "Enter your 4–12 digit PIN."
+    );
+    return;
+}
+
+try {
+    const pinHash =
+        await hashPIN(pin);
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .select("private_chat_pin_hash")
+        .eq("id", state.user.id)
+        .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data?.private_chat_pin_hash) {
+        showError(
+            "No Private Chat PIN has been configured yet."
+        );
+        return;
     }
 
     if (
-      currentUser &&
-      currentUser.id ===
-        session.user.id
+        data.private_chat_pin_hash !==
+        pinHash
     ) {
-      return;
+        showError(
+            "Incorrect Private Chat PIN."
+        );
+        return;
     }
 
-    currentUser =
-      session.user;
+    state.privateUnlocked = true;
 
-    try {
-      await loadOrCreateProfile();
-
-      await loadBlockedUsers();
-
-      await loadFriends();
-
-      await loadUsers();
-
-      subscribeToPresence();
-
-      subscribeToMessages();
-
-    } catch (error) {
-      console.error(
-        "Auth state error:",
-        error
-      );
-    }
-  }
-);
-
-
-/* =========================================================
-   MOBILE BACK
-   ========================================================= */
-
-window.addEventListener(
-  "popstate",
-  () => {
-    document.body.classList.remove(
-      "chat-open"
+    closeDialog(
+        dom.privateChatDialog
     );
-  }
+
+    if (dom.privateChatStatus) {
+        dom.privateChatStatus.textContent =
+            "Private Chat unlocked for this session.";
+    }
+
+    setStatus(
+        "Private Chat unlocked."
+    );
+
+    openPrivateChat();
+} catch (error) {
+    showError(
+        "Could not unlock Private Chat.",
+        error
+    );
+}
+```
+
+}
+
+function openPrivateChat() {
+if (!state.privateUnlocked) {
+openDialog(
+dom.privateChatDialog
+);
+return;
+}
+
+```
+/*
+ * The actual private-chat data should be loaded
+ * only through RLS-protected private tables.
+ *
+ * This function intentionally does not expose
+ * another user's private data.
+ */
+
+setStatus(
+    "Private Chat is unlocked for this session."
 );
 
+if (dom.privateChatStatus) {
+    dom.privateChatStatus.textContent =
+        "Unlocked for this session.";
+}
+```
+
+}
 
 /* =========================================================
-   CLEANUP
-   ========================================================= */
+BLOCKED USERS UI
+========================================================= */
+
+async function renderBlockedUsers() {
+if (!dom.blockedList) return;
+
+```
+if (!state.blockedUsers.length) {
+    dom.blockedList.innerHTML = `
+        <div class="empty-blocked">
+            No blocked users.
+        </div>
+    `;
+    return;
+}
+
+const ids =
+    state.blockedUsers
+        .map(
+            row =>
+                row.blocked_id ||
+                row.user_id
+        )
+        .filter(Boolean);
+
+let profiles = [];
+
+try {
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .in("id", ids);
+
+    if (error) throw error;
+
+    profiles = data || [];
+} catch (error) {
+    console.warn(
+        "Could not load blocked profiles:",
+        error
+    );
+}
+
+dom.blockedList.innerHTML =
+    state.blockedUsers.map(row => {
+        const id =
+            row.blocked_id ||
+            row.user_id;
+
+        const profile =
+            profiles.find(
+                item => item.id === id
+            );
+
+        return `
+            <div class="blocked-item">
+                <div class="blocked-user-info">
+                    <img
+                        src="${escapeAttribute(getAvatar(profile))}"
+                        alt="${escapeAttribute(getDisplayName(profile))}"
+                    >
+
+                    <span>
+                        <strong>
+                            ${escapeHTML(getDisplayName(profile))}
+                        </strong>
+
+                        <small>
+                            @${escapeHTML(getUsername(profile))}
+                        </small>
+                    </span>
+                </div>
+
+                <button
+                    type="button"
+                    class="unblock-user"
+                    data-user-id="${escapeAttribute(id)}"
+                >
+                    Unblock
+                </button>
+            </div>
+        `;
+    }).join("");
+```
+
+}
+
+/* =========================================================
+CHAT HEADER
+========================================================= */
+
+function renderChatHeader() {
+if (!state.selectedUser) {
+if (dom.chatName) {
+dom.chatName.textContent =
+"Select a person";
+}
+
+```
+    if (dom.status) {
+        dom.status.textContent = "";
+    }
+
+    return;
+}
+
+const user =
+    state.selectedUser;
+
+setImageSource(
+    dom.chatAvatar,
+    user
+);
+
+if (dom.chatName) {
+    dom.chatName.textContent =
+        getDisplayName(user);
+}
+
+if (dom.status) {
+    dom.status.textContent =
+        isOnline(user.id)
+            ? "Online"
+            : "Offline";
+}
+
+renderFriendButton();
+renderBlockButton();
+```
+
+}
+
+/* =========================================================
+PROFILE DIALOG
+========================================================= */
+
+function openProfile(userId) {
+const user =
+state.users.find(
+item => item.id === userId
+);
+
+```
+if (!user || !dom.profileContent) return;
+
+dom.profileContent.innerHTML = `
+    <div class="profile-view">
+        <img
+            class="profile-view-avatar"
+            src="${escapeAttribute(getAvatar(user))}"
+            alt="${escapeAttribute(getDisplayName(user))}"
+        >
+
+        <h2>
+            ${escapeHTML(getDisplayName(user))}
+        </h2>
+
+        <p>
+            @${escapeHTML(getUsername(user))}
+        </p>
+
+        <p>
+            ${isOnline(user.id) ? "🟢 Online" : "⚪ Offline"}
+        </p>
+
+        ${
+            isFriend(user.id)
+                ? `<p>❤️ Friends</p>`
+                : ""
+        }
+    </div>
+`;
+
+openDialog(
+    dom.profileDialog
+);
+```
+
+}
+
+/* =========================================================
+FILTERS
+========================================================= */
+
+function setFilter(filter) {
+const validFilters = [
+"all",
+"online",
+"unread",
+"recent",
+"friends"
+];
+
+```
+if (!validFilters.includes(filter)) {
+    filter = "all";
+}
+
+state.activeFilter = filter;
+
+document
+    .querySelectorAll(
+        "[data-filter]"
+    )
+    .forEach(button => {
+        button.classList.toggle(
+            "active",
+            button.dataset.filter === filter
+        );
+
+        button.setAttribute(
+            "aria-pressed",
+            button.dataset.filter === filter
+                ? "true"
+                : "false"
+        );
+    });
+
+renderUsers();
+```
+
+}
+
+/* =========================================================
+SETTINGS UI
+========================================================= */
+
+function openSettings() {
+renderOwnProfile();
+
+```
+if (dom.privateChatStatus) {
+    dom.privateChatStatus.textContent =
+        state.privateUnlocked
+            ? "Unlocked for this session."
+            : "Locked.";
+}
+
+openDialog(
+    dom.settings
+);
+```
+
+}
+
+function closeSettingsDialog() {
+closeDialog(
+dom.settings
+);
+}
+
+/* =========================================================
+REALTIME
+========================================================= */
+
+async function removeMessageChannel() {
+if (!state.channels.messages) return;
+
+```
+try {
+    await supabaseClient.removeChannel(
+        state.channels.messages
+    );
+} catch (error) {
+    console.warn(
+        "Could not remove old message channel:",
+        error
+    );
+}
+
+state.channels.messages = null;
+```
+
+}
+
+async function startMessageRealtime() {
+if (!state.user) return;
+
+```
+await removeMessageChannel();
+
+const channelName =
+    `q1-global-messages-${state.user.id}`;
+
+const channel =
+    supabaseClient.channel(
+        channelName
+    );
+
+channel.on(
+    "postgres_changes",
+    {
+        event: "INSERT",
+        schema: "public",
+        table: "messages"
+    },
+    async (payload) => {
+        const message =
+            normalizeMessage(payload.new);
+
+        if (!message?.id) return;
+
+        const relevant =
+            message.sender_id === state.user.id ||
+            message.receiver_id === state.user.id;
+
+        if (!relevant) return;
+
+        const inserted =
+            addMessageToState(message);
+
+        if (!inserted) return;
+
+        const otherUserId =
+            message.sender_id === state.user.id
+                ? message.receiver_id
+                : message.sender_id;
+
+        const currentlyOpen =
+            state.selectedUser?.id ===
+            otherUserId;
+
+        if (
+            message.sender_id !== state.user.id &&
+            !currentlyOpen
+        ) {
+            incrementUnread(
+                message.sender_id
+            );
+        }
+
+        if (currentlyOpen) {
+            const shouldScroll =
+                isNearBottom(
+                    dom.messages
+                );
+
+            renderMessages();
+
+            await hydrateMediaMessages();
+
+            if (shouldScroll) {
+                scrollMessagesToBottom(true);
+            }
+        } else {
+            renderUsers();
+        }
+    }
+);
+
+const status =
+    await new Promise(resolve => {
+        let finished = false;
+
+        const timeout =
+            setTimeout(() => {
+                if (!finished) {
+                    finished = true;
+                    resolve("TIMED_OUT");
+                }
+            }, 10000);
+
+        channel.subscribe(
+            subscribeStatus => {
+                if (
+                    subscribeStatus ===
+                    "SUBSCRIBED"
+                ) {
+                    clearTimeout(timeout);
+
+                    if (!finished) {
+                        finished = true;
+                        resolve("SUBSCRIBED");
+                    }
+                }
+
+                if (
+                    subscribeStatus ===
+                        "CHANNEL_ERROR" ||
+                    subscribeStatus ===
+                        "TIMED_OUT" ||
+                    subscribeStatus ===
+                        "CLOSED"
+                ) {
+                    clearTimeout(timeout);
+
+                    if (!finished) {
+                        finished = true;
+                        resolve(
+                            subscribeStatus
+                        );
+                    }
+                }
+            }
+        );
+    });
+
+if (status === "SUBSCRIBED") {
+    state.channels.messages =
+        channel;
+
+    console.log(
+        "Q1 message realtime: SUBSCRIBED"
+    );
+    console.log(
+        "Q1 realtime connected"
+    );
+} else {
+    console.warn(
+        "Q1 message realtime subscription:",
+        status
+    );
+}
+```
+
+}
+
+/* =========================================================
+UNREAD
+========================================================= */
+
+async function loadUnreadCounts() {
+if (!state.user) return;
+
+```
+/*
+ * We calculate unread counts from message timestamps
+ * only when a read-state table exists.
+ *
+ * Without a server-side read-state table, there is no
+ * secure persistent unread/read marker. We therefore
+ * preserve realtime-session counts in memory.
+ *
+ * This avoids falsely claiming persistent unread
+ * functionality that the database does not provide.
+ */
+
+state.unreadCounts = {};
+renderUsers();
+```
+
+}
+
+/* =========================================================
+EVENT LISTENERS
+========================================================= */
+
+function setupEventListeners() {
+dom.settingsBtn?.addEventListener(
+"click",
+openSettings
+);
+
+```
+dom.closeSettings?.addEventListener(
+    "click",
+    closeSettingsDialog
+);
+
+dom.save?.addEventListener(
+    "click",
+    async () => {
+        await saveProfile();
+        closeSettingsDialog();
+    }
+);
+
+dom.search?.addEventListener(
+    "input",
+    debounce(() => {
+        state.searchTerm =
+            dom.search.value.trim();
+
+        renderUsers();
+    }, 150)
+);
+
+dom.users?.addEventListener(
+    "click",
+    async event => {
+        const item =
+            event.target.closest(
+                "[data-user-id]"
+            );
+
+        if (!item) return;
+
+        const userId =
+            item.dataset.userId;
+
+        if (!userId) return;
+
+        await selectUser(userId);
+    }
+);
+
+document.addEventListener(
+    "click",
+    event => {
+        const filterButton =
+            event.target.closest(
+                "[data-filter]"
+            );
+
+        if (
+            filterButton &&
+            filterButton.dataset.filter
+        ) {
+            setFilter(
+                filterButton.dataset.filter
+            );
+        }
+    }
+);
+
+dom.addFriend?.addEventListener(
+    "click",
+    handleFriendButton
+);
+
+dom.block?.addEventListener(
+    "click",
+    async () => {
+        if (!state.selectedUser) return;
+
+        const userId =
+            state.selectedUser.id;
+
+        if (isBlocked(userId)) {
+            await unblockUser(userId);
+        } else {
+            const confirmed =
+                window.confirm(
+                    "Block this user? You will not be able to continue normal chat with them."
+                );
+
+            if (confirmed) {
+                await blockUser(userId);
+            }
+        }
+    }
+);
+
+dom.report?.addEventListener(
+    "click",
+    async () => {
+        if (!state.selectedUser) return;
+
+        await reportUser(
+            state.selectedUser.id
+        );
+    }
+);
+
+dom.input?.addEventListener(
+    "input",
+    updateCharacterCount
+);
+
+dom.input?.addEventListener(
+    "keydown",
+    event => {
+        if (
+            event.key === "Enter" &&
+            !event.shiftKey
+        ) {
+            event.preventDefault();
+
+            sendTextMessage();
+        }
+    }
+);
+
+dom.send?.addEventListener(
+    "click",
+    sendTextMessage
+);
+
+dom.photoBtn?.addEventListener(
+    "click",
+    async () => {
+        if (!(await canShareMedia())) return;
+
+        dom.photoInput?.click();
+    }
+);
+
+dom.videoBtn?.addEventListener(
+    "click",
+    async () => {
+        if (!(await canShareMedia())) return;
+
+        dom.videoInput?.click();
+    }
+);
+
+dom.linkBtn?.addEventListener(
+    "click",
+    sendLinkMessage
+);
+
+dom.photoInput?.addEventListener(
+    "change",
+    async () => {
+        const file =
+            dom.photoInput.files?.[0];
+
+        if (file) {
+            await uploadChatMedia(
+                file,
+                "image"
+            );
+        }
+
+        dom.photoInput.value = "";
+    }
+);
+
+dom.videoInput?.addEventListener(
+    "change",
+    async () => {
+        const file =
+            dom.videoInput.files?.[0];
+
+        if (file) {
+            await uploadChatMedia(
+                file,
+                "video"
+            );
+        }
+
+        dom.videoInput.value = "";
+    }
+);
+
+dom.profilePhotoBtn?.addEventListener(
+    "click",
+    () => {
+        dom.profilePhotoInput?.click();
+    }
+);
+
+dom.profilePhotoInput?.addEventListener(
+    "change",
+    async () => {
+        const file =
+            dom.profilePhotoInput.files?.[0];
+
+        if (file) {
+            await uploadProfilePhoto(file);
+        }
+
+        dom.profilePhotoInput.value = "";
+    }
+);
+
+dom.themeToggle?.addEventListener(
+    "change",
+    () => {
+        applyTheme(
+            dom.themeToggle.checked
+                ? "dark"
+                : "light"
+        );
+    }
+);
+
+dom.blocked?.addEventListener(
+    "click",
+    async () => {
+        await renderBlockedUsers();
+
+        openDialog(
+            dom.blockedDialog
+        );
+    }
+);
+
+dom.closeBlocked?.addEventListener(
+    "click",
+    () => {
+        closeDialog(
+            dom.blockedDialog
+        );
+    }
+);
+
+dom.blockedList?.addEventListener(
+    "click",
+    async event => {
+        const button =
+            event.target.closest(
+                ".unblock-user"
+            );
+
+        if (!button) return;
+
+        const userId =
+            button.dataset.userId;
+
+        if (!userId) return;
+
+        await unblockUser(userId);
+
+        await renderBlockedUsers();
+    }
+);
+
+dom.privateChatSettings?.addEventListener(
+    "click",
+    () => {
+        openDialog(
+            dom.privateChatDialog
+        );
+    }
+);
+
+dom.privateChatBtn?.addEventListener(
+    "click",
+    () => {
+        if (state.privateUnlocked) {
+            openPrivateChat();
+        } else {
+            openDialog(
+                dom.privateChatDialog
+            );
+        }
+    }
+);
+
+dom.closePrivateChat?.addEventListener(
+    "click",
+    () => {
+        closeDialog(
+            dom.privateChatDialog
+        );
+    }
+);
+
+dom.unlockPrivateChat?.addEventListener(
+    "click",
+    unlockPrivateChat
+);
+
+dom.privateChatPin?.addEventListener(
+    "keydown",
+    event => {
+        if (
+            event.key === "Enter"
+        ) {
+            event.preventDefault();
+
+            unlockPrivateChat();
+        }
+    }
+);
+
+dom.profileContent?.addEventListener(
+    "click",
+    event => {
+        const userButton =
+            event.target.closest(
+                "[data-profile-user-id]"
+            );
+
+        if (!userButton) return;
+
+        openProfile(
+            userButton.dataset.profileUserId
+        );
+    }
+);
+
+dom.closeProfile?.addEventListener(
+    "click",
+    () => {
+        closeDialog(
+            dom.profileDialog
+        );
+    }
+);
+
+document.addEventListener(
+    "keydown",
+    event => {
+        if (event.key !== "Escape") return;
+
+        closeDialog(dom.settings);
+        closeDialog(dom.blockedDialog);
+        closeDialog(dom.profileDialog);
+        closeDialog(dom.privateChatDialog);
+    }
+);
 
 window.addEventListener(
-  "beforeunload",
-  () => {
-    if (presenceChannel) {
-      supabaseClient.removeChannel(
-        presenceChannel
-      );
-
-      presenceChannel = null;
+    "beforeunload",
+    () => {
+        stopPresence();
+        removeMessageChannel();
     }
-
-    if (messageChannel) {
-      supabaseClient.removeChannel(
-        messageChannel
-      );
-
-      messageChannel = null;
-    }
-  }
 );
 
+window.addEventListener(
+    "online",
+    async () => {
+        setStatus(
+            "Connection restored."
+        );
+
+        if (state.user) {
+            await startPresence();
+            await startMessageRealtime();
+        }
+    }
+);
+
+window.addEventListener(
+    "offline",
+    () => {
+        setStatus(
+            "You are offline."
+        );
+    }
+);
+```
+
+}
 
 /* =========================================================
-   BOOT
-   ========================================================= */
+MOBILE
+========================================================= */
+
+function setupMobileBehavior() {
+document.addEventListener(
+"click",
+event => {
+const backButton =
+event.target.closest(
+"[data-chat-back]"
+);
+
+```
+        if (!backButton) return;
+
+        document.body.classList.remove(
+            "chat-open"
+        );
+
+        state.selectedUser = null;
+
+        renderUsers();
+        renderChatHeader();
+        renderMessages();
+    }
+);
+
+/*
+ * Prevent body-level touch/scroll hacks.
+ * The .messages element should remain the primary
+ * scroll container and CSS should provide:
+ *
+ * .messages {
+ *     overflow-y: auto;
+ *     min-height: 0;
+ * }
+ */
+```
+
+}
+
+/* =========================================================
+STARTUP
+========================================================= */
+
+async function startApplicationData() {
+await ensureProfile();
+
+```
+renderOwnProfile();
+
+await Promise.all([
+    loadFriends(),
+    loadBlockedUsers(),
+    loadUsers(),
+    loadUnreadCounts()
+]);
+
+await startPresence();
+await startMessageRealtime();
+
+renderUsers();
+renderChatHeader();
+renderMessages();
+
+clearError();
+
+setStatus(
+    "Connected"
+);
+
+console.log(
+    "Q1 Chat started successfully"
+);
+```
+
+}
+
+async function init() {
+if (state.initialized) return;
+
+```
+state.initialized = true;
+
+try {
+    loadTheme();
+
+    updateCharacterCount();
+
+    setupEventListeners();
+    setupMobileBehavior();
+    setupAuthListener();
+
+    setStatus(
+        "Connecting..."
+    );
+
+    await ensureAnonymousAuth();
+
+    await startApplicationData();
+} catch (error) {
+    console.error(
+        "Q1 Chat startup failed:",
+        error
+    );
+
+    showError(
+        "Q1 Chat could not start. Check the browser console and Supabase configuration.",
+        error
+    );
+}
+```
+
+}
 
 if (
-  document.readyState ===
-  "loading"
+document.readyState ===
+"loading"
 ) {
-  document.addEventListener(
-    "DOMContentLoaded",
-    startQ1Chat,
-    {
-      once: true
-    }
-  );
+document.addEventListener(
+"DOMContentLoaded",
+init,
+{
+once: true
+}
+);
 } else {
-  startQ1Chat();
+init();
 }
