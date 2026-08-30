@@ -14,7 +14,7 @@
 // Use the Supabase Project API URL (from Project Settings → API), not the raw DB host.
 const SUPABASE_URL = "https://ubkvpmwpvmozhbwlxhmx.supabase.co";
 
-const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE";
+const SUPABASE_KEY = "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
 
 
 /* =========================================================
