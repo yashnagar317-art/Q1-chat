@@ -1,6 +1,7 @@
+```javascript
 /* =========================================================
    Q1 CHAT — APP.JS
-   Supabase + Local UI + Safety Filters
+   Supabase Auth + Profile Sync + Local Chat + Safety
    ========================================================= */
 
 
@@ -13,13 +14,6 @@ const SUPABASE_URL =
 
 const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
-
-const BACKEND_URL = "";
-
-
-/* =========================
-   SUPABASE CLIENT
-   ========================= */
 
 const supabaseClient =
   window.supabase.createClient(
@@ -42,7 +36,6 @@ const users = [
     unread: 2,
     last: "Hey! How are you?"
   },
-
   {
     id: "priya",
     name: "Priya",
@@ -52,7 +45,6 @@ const users = [
     unread: 0,
     last: "See you later 👋"
   },
-
   {
     id: "aman",
     name: "Aman",
@@ -62,7 +54,6 @@ const users = [
     unread: 1,
     last: "That project looks cool."
   },
-
   {
     id: "neha",
     name: "Neha",
@@ -80,9 +71,7 @@ const users = [
    ========================= */
 
 const state = {
-
   filter: "online",
-
   selected: null,
 
   blocked: JSON.parse(
@@ -99,7 +88,6 @@ const state = {
   ),
 
   currentUser: null
-
 };
 
 
@@ -110,17 +98,15 @@ const state = {
 const $ = selector =>
   document.querySelector(selector);
 
-
 const getUser = id =>
   users.find(user => user.id === id);
 
 
 /* =========================
-   LOCAL SAVE
+   LOCAL STORAGE
    ========================= */
 
 function saveLocal() {
-
   localStorage.setItem(
     "q1blocked",
     JSON.stringify(state.blocked)
@@ -135,105 +121,88 @@ function saveLocal() {
     "q1settings",
     JSON.stringify(state.settings)
   );
-
 }
 
 
 /* =========================
-   ANONYMOUS AUTH
+   AUTH
    ========================= */
 
-async function ensureAnonymousUser() {
-
+async function ensureUser() {
   try {
-
     const {
-      data: sessionData
+      data: sessionData,
+      error: sessionError
     } = await supabaseClient.auth.getSession();
 
+    if (sessionError) {
+      console.warn(
+        "Session error:",
+        sessionError.message
+      );
+    }
 
     if (sessionData?.session?.user) {
-
       state.currentUser =
         sessionData.session.user;
 
       return state.currentUser;
-
     }
 
 
-    /*
-      Anonymous sign-in must be enabled
-      in Supabase Authentication settings.
-    */
+    /* Anonymous login */
 
     const {
       data,
       error
     } =
-      await supabaseClient.auth.signInAnonymously();
-
+      await supabaseClient.auth
+        .signInAnonymously();
 
     if (error) {
-
-      console.warn(
-        "Anonymous sign-in unavailable:",
+      console.error(
+        "Anonymous login failed:",
         error.message
       );
 
       return null;
-
     }
 
-
-    state.currentUser = data.user;
+    state.currentUser =
+      data.user;
 
     return data.user;
 
-  }
+  } catch (error) {
 
-  catch (error) {
-
-    console.warn(
-      "Supabase authentication error:",
+    console.error(
+      "Authentication error:",
       error
     );
 
     return null;
-
   }
-
 }
 
 
 /* =========================
-   PROFILE SYNC
+   CREATE / UPDATE PROFILE
    ========================= */
 
-async function saveProfileToSupabase() {
+async function syncProfile() {
 
   if (!state.currentUser) {
     return;
   }
 
-
   try {
 
     const profile = {
-
       id: state.currentUser.id,
-
-      display_name:
-        state.settings.name,
-
-      gender:
-        state.settings.gender,
-
-      age_group:
-        state.settings.age
-
+      display_name: state.settings.name,
+      gender: state.settings.gender,
+      age_group: state.settings.age
     };
-
 
     const {
       error
@@ -246,27 +215,27 @@ async function saveProfileToSupabase() {
         }
       );
 
-
     if (error) {
 
       console.warn(
-        "Profile save skipped:",
+        "Profile sync failed:",
         error.message
       );
 
+      return;
     }
 
-  }
+    console.log(
+      "Q1 Chat profile synced."
+    );
 
-  catch (error) {
+  } catch (error) {
 
     console.warn(
       "Profile sync error:",
       error
     );
-
   }
-
 }
 
 
@@ -274,12 +243,11 @@ async function saveProfileToSupabase() {
    LOAD PROFILE
    ========================= */
 
-async function loadProfileFromSupabase() {
+async function loadProfile() {
 
   if (!state.currentUser) {
     return;
   }
-
 
   try {
 
@@ -288,65 +256,56 @@ async function loadProfileFromSupabase() {
       error
     } = await supabaseClient
       .from("profiles")
-      .select("*")
-      .eq("id", state.currentUser.id)
+      .select(
+        "id,display_name,gender,age_group"
+      )
+      .eq(
+        "id",
+        state.currentUser.id
+      )
       .maybeSingle();
-
 
     if (error) {
 
       console.warn(
-        "Profile load skipped:",
+        "Profile load failed:",
         error.message
       );
 
       return;
-
     }
 
-
     if (!data) {
+
+      await syncProfile();
+
       return;
     }
 
-
     if (data.display_name) {
-
       state.settings.name =
         data.display_name;
-
     }
-
 
     if (data.gender) {
-
       state.settings.gender =
         data.gender;
-
     }
-
 
     if (data.age_group) {
-
       state.settings.age =
         data.age_group;
-
     }
-
 
     saveLocal();
 
-  }
-
-  catch (error) {
+  } catch (error) {
 
     console.warn(
       "Profile load error:",
       error
     );
-
   }
-
 }
 
 
@@ -362,22 +321,21 @@ function renderUsers() {
   const usersBox =
     $("#users");
 
-
   if (!search || !usersBox) {
     return;
   }
-
 
   const query =
     search.value
       .trim()
       .toLowerCase();
 
-
   let list =
     users
       .filter(user =>
-        !state.blocked.includes(user.id)
+        !state.blocked.includes(
+          user.id
+        )
       )
       .filter(user =>
         user.name
@@ -389,40 +347,36 @@ function renderUsers() {
   if (state.filter === "online") {
 
     list =
-      list.filter(user =>
-        user.online
+      list.filter(
+        user => user.online
       );
 
-  }
-
-
-  else if (state.filter === "unread") {
+  } else if (
+    state.filter === "unread"
+  ) {
 
     list =
-      list.filter(user =>
-        user.unread > 0
+      list.filter(
+        user => user.unread > 0
       );
 
-  }
-
-
-  else if (state.filter === "friends") {
+  } else if (
+    state.filter === "friends"
+  ) {
 
     list =
-      list.filter(user =>
-        user.friends
+      list.filter(
+        user => user.friends
       );
 
-  }
-
-
-  else if (state.filter === "recent") {
+  } else if (
+    state.filter === "recent"
+  ) {
 
     list =
-      list.filter(user =>
-        user.last
+      list.filter(
+        user => Boolean(user.last)
       );
-
   }
 
 
@@ -430,7 +384,11 @@ function renderUsers() {
     list.map(user => `
 
       <button
-        class="user ${state.selected === user.id ? "selected" : ""}"
+        class="user ${
+          state.selected === user.id
+            ? "selected"
+            : ""
+        }"
         type="button"
         onclick="selectUser('${user.id}')"
       >
@@ -438,29 +396,30 @@ function renderUsers() {
         <span
           class="avatar ${user.gender}"
         >
-          ${escapeHtml(user.name.charAt(0))}
+          ${escapeHtml(
+            user.name.charAt(0)
+          )}
         </span>
-
 
         <span class="info">
 
           <b>
-
             ${escapeHtml(user.name)}
 
             <i
-              class="dot ${user.online ? "on" : ""}"
+              class="dot ${
+                user.online ? "on" : ""
+              }"
             ></i>
-
           </b>
 
-
           <span class="preview">
-            ${escapeHtml(user.last || "")}
+            ${escapeHtml(
+              user.last || ""
+            )}
           </span>
 
         </span>
-
 
         ${
           user.unread
@@ -477,9 +436,7 @@ function renderUsers() {
 
     usersBox.innerHTML =
       '<p style="padding:15px;color:#777">No users found.</p>';
-
   }
-
 }
 
 
@@ -492,20 +449,18 @@ async function selectUser(id) {
   const user =
     getUser(id);
 
-
   if (!user) {
     return;
   }
 
-
-  if (state.blocked.includes(id)) {
+  if (
+    state.blocked.includes(id)
+  ) {
     return;
   }
 
-
   state.selected =
     id;
-
 
   user.unread =
     0;
@@ -514,19 +469,13 @@ async function selectUser(id) {
   if (!state.messages[id]) {
 
     state.messages[id] = [
-
       {
         me: false,
-
         text:
           `Hi! I'm ${user.name}. 👋`,
-
-        time:
-          ""
+        time: ""
       }
-
     ];
-
   }
 
 
@@ -536,15 +485,17 @@ async function selectUser(id) {
   $("#chatName").textContent =
     user.name;
 
-
   $("#status").innerHTML = `
-
     <span
-      class="dot ${user.online ? "on" : ""}"
+      class="dot ${
+        user.online ? "on" : ""
+      }"
     ></span>
-
-    ${user.online ? "Online" : "Offline"}
-
+    ${
+      user.online
+        ? "Online"
+        : "Offline"
+    }
   `;
 
 
@@ -556,11 +507,15 @@ async function selectUser(id) {
 
 
   renderUsers();
-
   renderMessages();
 
 
-  await loadMessagesFromSupabase(id);
+  /*
+    Real Supabase message loading
+    will be enabled after the
+    messages table UUID structure
+    is confirmed.
+  */
 
 }
 
@@ -573,7 +528,6 @@ function renderMessages() {
 
   const box =
     $("#messages");
-
 
   if (!box) {
     return;
@@ -593,7 +547,8 @@ function renderMessages() {
         </h2>
 
         <p>
-          Select a person to start a conversation.
+          Select a person to start
+          a conversation.
         </p>
 
       </div>
@@ -601,25 +556,32 @@ function renderMessages() {
     `;
 
     return;
-
   }
 
 
   const list =
-    state.messages[state.selected] || [];
+    state.messages[
+      state.selected
+    ] || [];
 
 
   box.innerHTML =
     list.map(message => `
 
       <div
-        class="msg ${message.me ? "me" : ""}"
+        class="msg ${
+          message.me ? "me" : ""
+        }"
       >
 
-        ${escapeHtml(message.text)}
+        ${escapeHtml(
+          message.text
+        )}
 
         <div class="meta">
-          ${escapeHtml(message.time || "")}
+          ${escapeHtml(
+            message.time || ""
+          )}
         </div>
 
       </div>
@@ -629,108 +591,6 @@ function renderMessages() {
 
   box.scrollTop =
     box.scrollHeight;
-
-}
-
-
-/* =========================
-   LOAD MESSAGES
-   ========================= */
-
-async function loadMessagesFromSupabase(userId) {
-
-  if (!state.currentUser) {
-    return;
-  }
-
-
-  try {
-
-    /*
-      This query assumes your messages table
-      contains:
-
-      sender_id
-      receiver_id
-      content
-      created_at
-    */
-
-
-    const {
-      data,
-      error
-    } = await supabaseClient
-      .from("messages")
-      .select("*")
-      .or(
-        `and(sender_id.eq.${state.currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${state.currentUser.id})`
-      )
-      .order(
-        "created_at",
-        {
-          ascending: true
-        }
-      );
-
-
-    if (error) {
-
-      console.warn(
-        "Messages could not be loaded:",
-        error.message
-      );
-
-      return;
-
-    }
-
-
-    if (!data || !data.length) {
-      return;
-    }
-
-
-    state.messages[userId] =
-      data.map(row => ({
-
-        me:
-          row.sender_id ===
-          state.currentUser.id,
-
-        text:
-          row.content || "",
-
-        time:
-          row.created_at
-            ? new Date(row.created_at)
-                .toLocaleTimeString(
-                  [],
-                  {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  }
-                )
-            : ""
-
-      }));
-
-
-    saveLocal();
-
-    renderMessages();
-
-  }
-
-  catch (error) {
-
-    console.warn(
-      "Message loading error:",
-      error
-    );
-
-  }
-
 }
 
 
@@ -743,58 +603,60 @@ async function sendMessage() {
   const input =
     $("#input");
 
+  if (!input) {
+    return;
+  }
 
   const text =
     input.value.trim();
 
 
-  if (!text || !state.selected) {
+  if (
+    !text ||
+    !state.selected
+  ) {
     return;
   }
 
 
-  /*
-    Safety filter
-  */
-
-  if (blockedText(text)) {
+  if (
+    blockedText(text)
+  ) {
 
     alert(
       "This message was blocked by Q1 Chat safety filters."
     );
 
     return;
-
   }
-
-
-  const now =
-    new Date();
 
 
   const time =
-    now.toLocaleTimeString(
-      [],
-      {
-        hour: "2-digit",
-        minute: "2-digit"
-      }
-    );
+    new Date()
+      .toLocaleTimeString(
+        [],
+        {
+          hour: "2-digit",
+          minute: "2-digit"
+        }
+      );
 
 
-  /*
-    Show immediately in UI
-  */
+  if (
+    !state.messages[
+      state.selected
+    ]
+  ) {
 
-  if (!state.messages[state.selected]) {
-
-    state.messages[state.selected] =
-      [];
-
+    state.messages[
+      state.selected
+    ] = [];
   }
 
 
-  state.messages[state.selected].push({
+  state.messages[
+    state.selected
+  ].push({
 
     me: true,
 
@@ -807,104 +669,16 @@ async function sendMessage() {
 
   input.value = "";
 
-
   saveLocal();
 
   renderMessages();
 
 
   /*
-    Save to Supabase
+    Do not insert into Supabase
+    yet because demo user IDs are
+    not Auth UUIDs.
   */
-
-  await saveMessageToSupabase(
-    state.selected,
-    text
-  );
-
-}
-
-
-/* =========================
-   SAVE MESSAGE
-   ========================= */
-
-async function saveMessageToSupabase(
-  receiverId,
-  text
-) {
-
-  if (!state.currentUser) {
-    return;
-  }
-
-
-  try {
-
-    const {
-      error
-    } = await supabaseClient
-      .from("messages")
-      .insert({
-
-        sender_id:
-          state.currentUser.id,
-
-        receiver_id:
-          receiverId,
-
-        content:
-          text
-
-      });
-
-
-    if (error) {
-
-      console.warn(
-        "Message was not saved to Supabase:",
-        error.message
-      );
-
-    }
-
-  }
-
-  catch (error) {
-
-    console.warn(
-      "Message save error:",
-      error
-    );
-
-  }
-
-}
-
-
-/* =========================
-   HTML ESCAPE
-   ========================= */
-
-function escapeHtml(value) {
-
-  return String(value)
-    .replace(
-      /[&<>'"]/g,
-      character => ({
-
-        "&": "&amp;",
-
-        "<": "&lt;",
-
-        ">": "&gt;",
-
-        "'": "&#39;",
-
-        '"': "&quot;"
-
-      })[character]
-    );
 
 }
 
@@ -917,18 +691,50 @@ function blockedText(text) {
 
   return (
 
-    /https?:\/\/\S+/i.test(text) ||
-
-    /www\.\S+/i.test(text) ||
-
-    /\b(instagram|snapchat|onlyfans|telegram|discord)\b/i
+    /https?:\/\/\S+/i
       .test(text) ||
 
-    /\b(dm me|link in bio|follow me|add me)\b/i
+    /www\.\S+/i
+      .test(text) ||
+
+    /\b(
+      instagram|
+      snapchat|
+      onlyfans|
+      telegram|
+      discord
+    )\b/ix
+      .test(text) ||
+
+    /\b(
+      dm me|
+      link in bio|
+      follow me|
+      add me
+    )\b/ix
       .test(text)
 
   );
+}
 
+
+/* =========================
+   ESCAPE HTML
+   ========================= */
+
+function escapeHtml(value) {
+
+  return String(value)
+    .replace(
+      /[&<>'"]/g,
+      character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;"
+      })[character]
+    );
 }
 
 
@@ -955,38 +761,40 @@ $("#input").onkeydown =
       event.preventDefault();
 
       sendMessage();
-
     }
-
   };
 
 
 /* =========================
-   NAV FILTERS
+   NAVIGATION
    ========================= */
 
 document
-  .querySelectorAll("nav button")
+  .querySelectorAll(
+    "nav button"
+  )
   .forEach(button => {
 
     button.onclick = () => {
 
       document
-        .querySelectorAll("nav button")
+        .querySelectorAll(
+          "nav button"
+        )
         .forEach(item =>
-          item.classList.remove("active")
+          item.classList.remove(
+            "active"
+          )
         );
 
-
-      button.classList.add("active");
-
+      button.classList.add(
+        "active"
+      );
 
       state.filter =
         button.dataset.filter;
 
-
       renderUsers();
-
     };
 
   });
@@ -1016,9 +824,7 @@ $("#settingsBtn").onclick =
     $("#age").value =
       state.settings.age;
 
-
     $("#settings").showModal();
-
   };
 
 
@@ -1032,25 +838,23 @@ $("#save").onclick =
     state.settings = {
 
       name:
-        $("#displayName").value.trim()
-        || "You",
+        $("#displayName")
+          .value
+          .trim() || "You",
 
       gender:
         $("#gender").value,
 
       age:
         $("#age").value
-
     };
 
 
     saveLocal();
 
-    await saveProfileToSupabase();
-
+    await syncProfile();
 
     $("#settings").close();
-
   };
 
 
@@ -1064,7 +868,6 @@ $("#blocked").onclick =
     const list =
       $("#blockedList");
 
-
     list.innerHTML =
       state.blocked
         .map(id => {
@@ -1072,18 +875,18 @@ $("#blocked").onclick =
           const user =
             getUser(id);
 
-
           if (!user) {
             return "";
           }
-
 
           return `
 
             <div class="blockedrow">
 
               <span>
-                ${escapeHtml(user.name)}
+                ${escapeHtml(
+                  user.name
+                )}
               </span>
 
               <button
@@ -1105,12 +908,11 @@ $("#blocked").onclick =
 
       list.innerHTML =
         "<p>No blocked users.</p>";
-
     }
 
 
-    $("#blockedDialog").showModal();
-
+    $("#blockedDialog")
+      .showModal();
   };
 
 
@@ -1125,7 +927,6 @@ function unblock(id) {
       item => item !== id
     );
 
-
   saveLocal();
 
   renderUsers();
@@ -1134,16 +935,14 @@ function unblock(id) {
   const dialog =
     $("#blockedDialog");
 
-
   if (dialog.open) {
     dialog.close();
   }
-
 }
 
 
 /* =========================
-   BLOCK CURRENT USER
+   BLOCK
    ========================= */
 
 $("#block").onclick =
@@ -1153,10 +952,10 @@ $("#block").onclick =
       return;
     }
 
-
     const user =
-      getUser(state.selected);
-
+      getUser(
+        state.selected
+      );
 
     if (!user) {
       return;
@@ -1178,7 +977,6 @@ $("#block").onclick =
         state.blocked.push(
           user.id
         );
-
       }
 
 
@@ -1193,11 +991,12 @@ $("#block").onclick =
         true;
 
 
-      $("#chatName").textContent =
+      $("#chatName")
+        .textContent =
         "Select a person";
 
-
-      $("#status").textContent =
+      $("#status")
+        .textContent =
         "Choose a chat";
 
 
@@ -1206,9 +1005,7 @@ $("#block").onclick =
       renderUsers();
 
       renderMessages();
-
     }
-
   };
 
 
@@ -1226,37 +1023,38 @@ $("#report").onclick =
       );
 
       return;
-
     }
-
 
     alert(
       "Report submitted for moderation."
     );
-
   };
 
 
 /* =========================
-   AUTH STATE LISTENER
+   AUTH STATE
    ========================= */
 
-supabaseClient.auth.onAuthStateChange(
-  (_event, session) => {
+supabaseClient.auth
+  .onAuthStateChange(
+    (_event, session) => {
 
-    if (session?.user) {
+      if (session?.user) {
 
-      state.currentUser =
-        session.user;
+        state.currentUser =
+          session.user;
 
+        console.log(
+          "Q1 Chat Auth:",
+          session.user.id
+        );
+      }
     }
-
-  }
-);
+  );
 
 
 /* =========================
-   INITIALIZE APP
+   INITIALIZE
    ========================= */
 
 async function initQ1Chat() {
@@ -1269,17 +1067,28 @@ async function initQ1Chat() {
 
 
   const user =
-    await ensureAnonymousUser();
+    await ensureUser();
 
 
-  if (user) {
+  if (!user) {
 
-    await loadProfileFromSupabase();
+    console.warn(
+      "Q1 Chat is running in local mode."
+    );
 
-    saveLocal();
-
+    return;
   }
 
+
+  console.log(
+    "Q1 Chat authenticated:",
+    user.id
+  );
+
+
+  await loadProfile();
+
+  saveLocal();
 }
 
 
