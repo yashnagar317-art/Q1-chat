@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
   <meta
     name="description"
@@ -16,9 +20,10 @@
 
 <body>
 
-  <!-- =========================
+  <!-- =====================================================
        HEADER
-       ========================= -->
+       ===================================================== -->
+
   <header>
 
     <div class="brand">
@@ -27,6 +32,15 @@
     </div>
 
     <div class="header-actions">
+
+      <span
+        id="authStatus"
+        class="auth-status"
+        aria-live="polite"
+      >
+        Connecting...
+      </span>
+
       <button
         id="settingsBtn"
         type="button"
@@ -34,14 +48,16 @@
       >
         ⚙ Settings
       </button>
+
     </div>
 
   </header>
 
 
-  <!-- =========================
+  <!-- =====================================================
        NAVIGATION
-       ========================= -->
+       ===================================================== -->
+
   <nav aria-label="Chat filters">
 
     <button
@@ -76,28 +92,33 @@
   </nav>
 
 
-  <!-- =========================
+  <!-- =====================================================
        MAIN APPLICATION
-       ========================= -->
+       ===================================================== -->
+
   <main>
 
-    <!-- =====================
+    <!-- ===================================================
          USERS SIDEBAR
-         ===================== -->
+         =================================================== -->
+
     <aside>
 
       <div class="sidebar-head">
 
-        <h2>People</h2>
+        <div>
+          <h2>People</h2>
 
-        <span id="userCount">
-          Online
-        </span>
+          <span id="userCount">
+            0 people
+          </span>
+        </div>
 
       </div>
 
 
       <!-- SEARCH -->
+
       <div class="search-wrap">
 
         <span aria-hidden="true">
@@ -117,16 +138,23 @@
 
 
       <!-- SAFETY NOTICE -->
+
       <div class="note">
-        🛡️
+
+        <span aria-hidden="true">
+          🛡️
+        </span>
+
         <span>
           Unsafe content and external promotional/contact
           links are blocked.
         </span>
+
       </div>
 
 
-      <!-- USERS -->
+      <!-- USER LIST -->
+
       <div
         id="users"
         aria-live="polite"
@@ -135,13 +163,15 @@
     </aside>
 
 
-    <!-- =====================
+    <!-- ===================================================
          CHAT SECTION
-         ===================== -->
+         =================================================== -->
+
     <section class="chat-section">
 
 
       <!-- CHAT HEADER -->
+
       <div class="chathead">
 
         <div class="chat-user-info">
@@ -170,6 +200,7 @@
 
 
         <!-- CHAT ACTIONS -->
+
         <div class="chat-actions">
 
           <button
@@ -193,9 +224,10 @@
       </div>
 
 
-      <!-- =====================
+      <!-- =================================================
            MESSAGES
-           ===================== -->
+           ================================================= -->
+
       <div
         id="messages"
         class="messages"
@@ -227,9 +259,10 @@
       </div>
 
 
-      <!-- =====================
+      <!-- =================================================
            MESSAGE COMPOSER
-           ===================== -->
+           ================================================= -->
+
       <div class="composer">
 
         <div class="composer-box">
@@ -275,24 +308,29 @@
   </main>
 
 
-  <!-- =========================
+  <!-- =====================================================
        SETTINGS DIALOG
-       ========================= -->
+       ===================================================== -->
+
   <dialog id="settings">
 
     <div class="dialog-head">
 
       <div>
-        <h3>⚙ Settings</h3>
+
+        <h3>
+          ⚙ Settings
+        </h3>
 
         <p>
           Customize your Q1 Chat profile.
         </p>
+
       </div>
 
       <button
+        id="closeSettings"
         type="button"
-        onclick="document.getElementById('settings').close()"
         aria-label="Close settings"
       >
         ×
@@ -302,7 +340,9 @@
 
 
     <!-- DISPLAY NAME -->
+
     <label for="displayName">
+
       Display name
 
       <input
@@ -312,11 +352,14 @@
         placeholder="Enter your name"
         autocomplete="nickname"
       >
+
     </label>
 
 
     <!-- GENDER -->
+
     <label for="gender">
+
       Gender
 
       <select id="gender">
@@ -339,7 +382,9 @@
 
 
     <!-- AGE -->
+
     <label for="age">
+
       Age group
 
       <select id="age">
@@ -358,6 +403,7 @@
 
 
     <!-- BLOCKED USERS -->
+
     <button
       id="blocked"
       type="button"
@@ -368,6 +414,7 @@
 
 
     <!-- SAVE -->
+
     <button
       id="save"
       type="button"
@@ -378,31 +425,38 @@
 
 
     <p class="dialog-safety">
+
       🛡️ For safety, never share passwords, home addresses,
       phone numbers or private contact details.
+
     </p>
 
   </dialog>
 
 
-  <!-- =========================
+  <!-- =====================================================
        BLOCKED USERS DIALOG
-       ========================= -->
+       ===================================================== -->
+
   <dialog id="blockedDialog">
 
     <div class="dialog-head">
 
       <div>
-        <h3>🚫 Blocked Users</h3>
+
+        <h3>
+          🚫 Blocked Users
+        </h3>
 
         <p>
           Manage people you have blocked.
         </p>
+
       </div>
 
       <button
+        id="closeBlocked"
         type="button"
-        onclick="document.getElementById('blockedDialog').close()"
         aria-label="Close blocked users"
       >
         ×
@@ -422,87 +476,22 @@
   </dialog>
 
 
-  <!-- =========================
+  <!-- =====================================================
        SUPABASE
-       ========================= -->
+       IMPORTANT:
+       No inline JavaScript is used.
+       ===================================================== -->
 
   <script
     src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
   ></script>
 
 
-  <!-- =========================
+  <!-- =====================================================
        Q1 CHAT APP
-       ========================= -->
+       ===================================================== -->
 
   <script src="app.js"></script>
-
-
-  <!-- =========================
-       SMALL UI HELPERS
-       ========================= -->
-
-  <script>
-
-    /* Character counter */
-    const messageInput =
-      document.getElementById("input");
-
-    const charCount =
-      document.getElementById("charCount");
-
-    if (messageInput && charCount) {
-
-      messageInput.addEventListener("input", () => {
-
-        charCount.textContent =
-          messageInput.value.length + "/2000";
-
-      });
-
-    }
-
-
-    /* Auto-grow textarea */
-    if (messageInput) {
-
-      messageInput.addEventListener("input", () => {
-
-        messageInput.style.height = "auto";
-
-        messageInput.style.height =
-          Math.min(messageInput.scrollHeight, 150) + "px";
-
-      });
-
-    }
-
-
-    /* Enable/disable chat action buttons */
-    document.addEventListener("click", () => {
-
-      const selected =
-        typeof state !== "undefined"
-          ? state.selected
-          : null;
-
-      const blockButton =
-        document.getElementById("block");
-
-      const reportButton =
-        document.getElementById("report");
-
-      if (blockButton) {
-        blockButton.disabled = !selected;
-      }
-
-      if (reportButton) {
-        reportButton.disabled = !selected;
-      }
-
-    });
-
-  </script>
 
 </body>
 </html>
