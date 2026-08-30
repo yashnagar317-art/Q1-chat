@@ -1,13 +1,22 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta
-    name="description"
-    content="Q1 Chat — Simple, safe and connected."
-  >
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+
+>
+
+<meta
+name="description"
+content="Q1 Chat — Simple, safe and connected."
+
+>
+
+  <meta name="theme-color" content="#ffffff">
 
   <title>Q1 Chat</title>
 
@@ -16,429 +25,893 @@
 
 <body>
 
-  <!-- ================= HEADER ================= -->
+  <!-- =====================================================
+       TOP BAR
+       ===================================================== -->
+
   <header class="topbar">
 
-    <div class="brand">
-      <div class="brand-logo">Q1</div>
+```
+<div class="brand">
 
-      <div class="brand-text">
-        <strong>Q1 Chat</strong>
-        <span>Simple • Safe • Connected</span>
-      </div>
-    </div>
+  <div class="brand-logo">
+    Q1
+  </div>
 
-    <div class="top-actions">
+  <div class="brand-text">
+    <strong>Q1 Chat</strong>
+    <span>Simple • Safe • Connected</span>
+  </div>
 
-      <div id="authStatus" class="connection">
-        <span class="connection-dot"></span>
-        Connecting...
-      </div>
+</div>
 
-      <button
-        id="settingsBtn"
-        class="icon-btn"
-        type="button"
-        aria-label="Open settings"
-      >
-        ⚙️
-        <span>Settings</span>
-      </button>
 
-    </div>
+<div class="top-actions">
+
+  <div
+    id="authStatus"
+    class="connection"
+    aria-live="polite"
+  >
+    <span class="connection-dot"></span>
+    Connecting...
+  </div>
+
+
+  <button
+    id="settingsBtn"
+    class="icon-btn"
+    type="button"
+    aria-label="Open settings"
+  >
+    ⚙️
+    <span>Settings</span>
+  </button>
+
+</div>
+```
 
   </header>
 
+  <!-- =====================================================
+       FILTER BAR
+       ===================================================== -->
 
-  <!-- ================= NAV ================= -->
   <nav class="filter-bar">
 
-    <button
-      class="filter active"
-      data-filter="online"
-      type="button"
-    >
-      <span>🟢</span>
-      Online
-    </button>
+```
+<button
+  class="filter active"
+  data-filter="online"
+  type="button"
+>
+  🟢 Online
+</button>
 
-    <button
-      class="filter"
-      data-filter="unread"
-      type="button"
-    >
-      <span>🔵</span>
-      Unread
-    </button>
 
-    <button
-      class="filter"
-      data-filter="recent"
-      type="button"
-    >
-      <span>🕘</span>
-      Recent
-    </button>
+<button
+  class="filter"
+  data-filter="unread"
+  type="button"
+>
+  🔵 Unread
+</button>
 
-    <button
-      class="filter"
-      data-filter="friends"
-      type="button"
-    >
-      <span>♥</span>
-      Friends
-    </button>
+
+<button
+  class="filter"
+  data-filter="recent"
+  type="button"
+>
+  🕘 Recent
+</button>
+
+
+<button
+  class="filter"
+  data-filter="friends"
+  type="button"
+>
+  ❤️ Friends
+</button>
+```
 
   </nav>
 
+  <!-- =====================================================
+       MAIN APP
+       ===================================================== -->
 
-  <!-- ================= APP ================= -->
   <main class="app">
 
-    <!-- ============ SIDEBAR ============ -->
-    <aside class="sidebar">
+```
+<!-- ===================================================
+     SIDEBAR
+     =================================================== -->
 
-      <div class="sidebar-header">
+<aside class="sidebar">
 
-        <div>
-          <h2>People</h2>
-          <span id="userCount">0 people</span>
-        </div>
+  <div class="sidebar-header">
 
-        <div class="people-icon">
-          👥
-        </div>
+    <div>
+      <h2>People</h2>
 
-      </div>
-
-
-      <!-- SEARCH -->
-      <div class="search-box">
-
-        <span>🔎</span>
-
-        <input
-          id="search"
-          type="search"
-          placeholder="Search people..."
-          maxlength="50"
-          autocomplete="off"
-          aria-label="Search users"
-        >
-
-      </div>
+      <span id="userCount">
+        0 people
+      </span>
+    </div>
 
 
-      <!-- SAFETY -->
-      <div class="safety-card">
+    <div class="people-icon">
+      👥
+    </div>
 
-        <div class="safety-icon">
-          🛡️
-        </div>
-
-        <div>
-          <strong>Stay safe</strong>
-          <p>
-            Never share passwords, addresses,
-            phone numbers or private contact details.
-          </p>
-        </div>
-
-      </div>
+  </div>
 
 
-      <!-- USERS -->
-      <div
-        id="users"
-        class="users-list"
-        aria-live="polite"
-      ></div>
+  <!-- SEARCH -->
 
-    </aside>
+  <div class="search-box">
 
+    <span>🔎</span>
 
-    <!-- ============ CHAT ============ -->
-    <section class="chat">
+    <input
+      id="search"
+      type="search"
+      placeholder="Search people..."
+      maxlength="50"
+      autocomplete="off"
+      aria-label="Search users"
+    >
 
-      <!-- CHAT HEADER -->
-      <div class="chat-header">
-
-        <div class="chat-person">
-
-          <div
-            id="chatAvatar"
-            class="chat-avatar"
-          >
-            ?
-          </div>
-
-          <div class="chat-person-text">
-
-            <strong id="chatName">
-              Select a person
-            </strong>
-
-            <span id="status">
-              Choose someone from the list
-            </span>
-
-          </div>
-
-        </div>
+  </div>
 
 
-        <div class="chat-actions">
+  <!-- SAFETY -->
 
-          <button
-            id="block"
-            type="button"
-            disabled
-          >
-            🚫 Block
-          </button>
+  <div class="safety-card">
 
-          <button
-            id="report"
-            type="button"
-            disabled
-          >
-            ⚑ Report
-          </button>
+    <div class="safety-icon">
+      🛡️
+    </div>
 
-        </div>
+    <div>
 
-      </div>
+      <strong>
+        Stay safe
+      </strong>
+
+      <p>
+        Never share passwords,
+        addresses, phone numbers
+        or private contact details.
+      </p>
+
+    </div>
+
+  </div>
 
 
-      <!-- MESSAGES -->
-      <div
-        id="messages"
-        class="messages"
-        aria-live="polite"
-        aria-label="Messages"
+  <!-- PRIVATE CHAT -->
+
+  <div class="private-chat-card">
+
+    <div class="private-chat-icon">
+      🔐
+    </div>
+
+    <div class="private-chat-info">
+
+      <strong>
+        Private Chat
+      </strong>
+
+      <span>
+        Locked
+      </span>
+
+    </div>
+
+    <button
+      id="privateChatBtn"
+      type="button"
+      class="private-chat-open"
+    >
+      🔒 Open
+    </button>
+
+  </div>
+
+
+  <!-- USERS -->
+
+  <div
+    id="users"
+    class="users-list"
+    aria-live="polite"
+  ></div>
+
+</aside>
+
+
+<!-- ===================================================
+     CHAT
+     =================================================== -->
+
+<section class="chat">
+
+
+  <!-- CHAT HEADER -->
+
+  <div class="chat-header">
+
+    <div class="chat-person">
+
+      <button
+        id="chatAvatar"
+        class="chat-avatar"
+        type="button"
+        aria-label="View profile"
       >
+        ?
+      </button>
 
-        <div class="welcome">
 
-          <div class="welcome-logo">
-            Q1
-          </div>
+      <div class="chat-person-text">
 
-          <h2>Welcome to Q1 Chat</h2>
+        <strong id="chatName">
+          Select a person
+        </strong>
 
-          <p>
-            Select a person from the left to start chatting.
-          </p>
-
-          <div class="welcome-tip">
-            🛡️ Keep conversations respectful and safe.
-          </div>
-
-        </div>
+        <span id="status">
+          Choose someone from the list
+        </span>
 
       </div>
 
+    </div>
 
-      <!-- COMPOSER -->
-      <div class="composer">
 
-        <div class="composer-main">
+    <div class="chat-actions">
 
-          <textarea
-            id="input"
-            disabled
-            rows="1"
-            maxlength="2000"
-            placeholder="Write a message..."
-            autocomplete="off"
-            aria-label="Write a message"
-          ></textarea>
+      <button
+        id="addFriend"
+        type="button"
+        disabled
+      >
+        ❤️ Add Friend
+      </button>
 
-          <div class="composer-info">
 
-            <span>
-              🔒 Safe chat
-            </span>
+      <button
+        id="block"
+        type="button"
+        disabled
+      >
+        🚫 Block
+      </button>
 
-            <span id="charCount">
-              0/2000
-            </span>
 
-          </div>
+      <button
+        id="report"
+        type="button"
+        disabled
+      >
+        ⚑ Report
+      </button>
 
-        </div>
+    </div>
 
-        <button
-          id="send"
-          class="send-btn"
-          type="button"
-          disabled
-        >
-          <span>Send</span>
-          <span>➤</span>
-        </button>
+  </div>
+
+
+  <!-- FRIEND STATUS -->
+
+  <div
+    id="friendStatus"
+    class="friend-status"
+    hidden
+  >
+    ❤️ Friends
+  </div>
+
+
+  <!-- =================================================
+       MESSAGES
+       ================================================= -->
+
+  <div
+    id="messages"
+    class="messages"
+    aria-live="polite"
+    aria-label="Messages"
+  >
+
+    <div class="welcome">
+
+      <div class="welcome-logo">
+        Q1
+      </div>
+
+      <h2>
+        Welcome to Q1 Chat
+      </h2>
+
+      <p>
+        Select a person from the left
+        to start chatting.
+      </p>
+
+      <div class="welcome-tip">
+        🛡️ Keep conversations respectful
+        and safe.
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =================================================
+       COMPOSER
+       ================================================= -->
+
+  <div class="composer">
+
+
+    <!-- ATTACHMENT BUTTONS -->
+
+    <div class="composer-tools">
+
+      <button
+        id="photoBtn"
+        type="button"
+        class="media-btn"
+        disabled
+        aria-label="Send photo"
+        title="Send photo"
+      >
+        📷
+      </button>
+
+
+      <button
+        id="videoBtn"
+        type="button"
+        class="media-btn"
+        disabled
+        aria-label="Send video"
+        title="Send video"
+      >
+        🎥
+      </button>
+
+
+      <button
+        id="linkBtn"
+        type="button"
+        class="media-btn"
+        disabled
+        aria-label="Send link"
+        title="Send link"
+      >
+        🔗
+      </button>
+
+    </div>
+
+
+    <div class="composer-main">
+
+      <textarea
+        id="input"
+        disabled
+        rows="1"
+        maxlength="2000"
+        placeholder="Write a message..."
+        autocomplete="off"
+        aria-label="Write a message"
+      ></textarea>
+
+
+      <div class="composer-info">
+
+        <span>
+          🔒 Safe chat
+        </span>
+
+
+        <span id="charCount">
+          0/2000
+        </span>
 
       </div>
 
-    </section>
+    </div>
+
+
+    <button
+      id="send"
+      class="send-btn"
+      type="button"
+      disabled
+    >
+      <span>
+        Send
+      </span>
+
+      <span>
+        ➤
+      </span>
+    </button>
+
+  </div>
+
+
+  <!-- HIDDEN MEDIA INPUTS -->
+
+  <input
+    id="photoInput"
+    type="file"
+    accept="image/*"
+    hidden
+  >
+
+
+  <input
+    id="videoInput"
+    type="file"
+    accept="video/*"
+    hidden
+  >
+
+</section>
+```
 
   </main>
 
+  <!-- =====================================================
+       PRIVATE CHAT LOCK
+       ===================================================== -->
 
-  <!-- ================= SETTINGS ================= -->
-  <dialog id="settings" class="modal">
+  <dialog
+    id="privateChatDialog"
+    class="modal private-chat-modal"
+  >
 
-    <div class="modal-header">
+```
+<div class="modal-header">
 
-      <div>
-        <span class="modal-icon">⚙️</span>
-        <h3>Settings</h3>
-        <p>Customize your Q1 Chat profile.</p>
-      </div>
+  <div>
 
-      <button
-        id="closeSettings"
-        class="close-btn"
-        type="button"
-      >
-        ×
-      </button>
+    <span class="modal-icon">
+      🔐
+    </span>
 
-    </div>
+    <h3>
+      Private Chat
+    </h3>
 
+    <p>
+      This chat is locked.
+    </p>
 
-    <div class="form-group">
-
-      <label for="displayName">
-        Display name
-      </label>
-
-      <input
-        id="displayName"
-        type="text"
-        maxlength="40"
-        placeholder="Enter your name"
-        autocomplete="nickname"
-      >
-
-    </div>
+  </div>
 
 
-    <div class="form-group">
+  <button
+    id="closePrivateChat"
+    class="close-btn"
+    type="button"
+  >
+    ×
+  </button>
 
-      <label for="gender">
-        Gender
-      </label>
-
-      <select id="gender">
-
-        <option value="boy">
-          Boy
-        </option>
-
-        <option value="girl">
-          Girl
-        </option>
-
-        <option value="other">
-          Prefer not to say
-        </option>
-
-      </select>
-
-    </div>
+</div>
 
 
-    <div class="settings-section">
+<div class="private-lock-box">
 
-      <button
-        id="blocked"
-        class="secondary-btn"
-        type="button"
-      >
-        🚫 Blocked Users
-      </button>
+  <div class="lock-icon">
+    🔒
+  </div>
 
-      <button
-        id="themeToggle"
-        class="secondary-btn"
-        type="button"
-      >
-        🌙 Dark
-      </button>
+  <h3>
+    Private area
+  </h3>
 
-    </div>
+  <p>
+    Open the private chat to access
+    your private conversations.
+  </p>
 
+  <button
+    id="unlockPrivateChat"
+    class="primary-btn"
+    type="button"
+  >
+    🔓 Open Private Chat
+  </button>
+
+</div>
+```
+
+  </dialog>
+
+  <!-- =====================================================
+       SETTINGS
+       ===================================================== -->
+
+  <dialog
+    id="settings"
+    class="modal"
+  >
+
+```
+<div class="modal-header">
+
+  <div>
+
+    <span class="modal-icon">
+      ⚙️
+    </span>
+
+    <h3>
+      Settings
+    </h3>
+
+    <p>
+      Customize your Q1 Chat profile.
+    </p>
+
+  </div>
+
+
+  <button
+    id="closeSettings"
+    class="close-btn"
+    type="button"
+  >
+    ×
+  </button>
+
+</div>
+
+
+<!-- PROFILE / DP -->
+
+<div class="profile-settings">
+
+  <div
+    id="settingsAvatar"
+    class="settings-avatar"
+  >
+    Q
+  </div>
+
+
+  <div>
+
+    <strong>
+      Profile photo
+    </strong>
+
+    <p>
+      Add or change your profile picture.
+    </p>
 
     <button
-      id="save"
-      class="primary-btn"
+      id="changePhoto"
       type="button"
+      class="secondary-btn"
     >
-      Save settings
+      📷 Change photo
     </button>
 
+  </div>
 
-    <div class="settings-safe">
-      🛡️ Q1 Chat safety reminder:
-      don't share private information.
-    </div>
+</div>
+
+
+<!-- DISPLAY NAME -->
+
+<div class="form-group">
+
+  <label for="displayName">
+    Display name
+  </label>
+
+  <input
+    id="displayName"
+    type="text"
+    maxlength="40"
+    placeholder="Enter your name"
+    autocomplete="nickname"
+  >
+
+</div>
+
+
+<!-- GENDER -->
+
+<div class="form-group">
+
+  <label for="gender">
+    Gender
+  </label>
+
+  <select id="gender">
+
+    <option value="boy">
+      Boy
+    </option>
+
+    <option value="girl">
+      Girl
+    </option>
+
+    <option value="other">
+      Prefer not to say
+    </option>
+
+  </select>
+
+</div>
+
+
+<!-- MORE SETTINGS -->
+
+<div class="settings-section">
+
+  <button
+    id="blocked"
+    class="secondary-btn"
+    type="button"
+  >
+    🚫 Blocked Users
+  </button>
+
+
+  <button
+    id="themeToggle"
+    class="secondary-btn"
+    type="button"
+  >
+    🌙 Dark mode
+  </button>
+
+
+  <button
+    id="privacyBtn"
+    class="secondary-btn"
+    type="button"
+  >
+    🔐 Privacy
+  </button>
+
+</div>
+
+
+<button
+  id="save"
+  class="primary-btn"
+  type="button"
+>
+  Save settings
+</button>
+
+
+<div class="settings-safe">
+
+  🛡️ Q1 Chat safety reminder:
+  don't share private information.
+
+</div>
+```
 
   </dialog>
 
+  <!-- =====================================================
+       BLOCKED USERS
+       ===================================================== -->
 
-  <!-- ================= BLOCKED ================= -->
-  <dialog id="blockedDialog" class="modal">
+  <dialog
+    id="blockedDialog"
+    class="modal"
+  >
 
-    <div class="modal-header">
+```
+<div class="modal-header">
 
-      <div>
-        <span class="modal-icon">🚫</span>
-        <h3>Blocked Users</h3>
-        <p>Manage people you have blocked.</p>
-      </div>
+  <div>
 
-      <button
-        id="closeBlocked"
-        class="close-btn"
-        type="button"
-      >
-        ×
-      </button>
+    <span class="modal-icon">
+      🚫
+    </span>
 
-    </div>
+    <h3>
+      Blocked Users
+    </h3>
 
-    <div id="blockedList" class="blocked-list">
+    <p>
+      Manage people you have blocked.
+    </p>
 
-      <div class="empty-blocked">
-        No blocked users.
-      </div>
+  </div>
 
-    </div>
+
+  <button
+    id="closeBlocked"
+    class="close-btn"
+    type="button"
+  >
+    ×
+  </button>
+
+</div>
+
+
+<div
+  id="blockedList"
+  class="blocked-list"
+>
+
+  <div class="empty-blocked">
+    No blocked users.
+  </div>
+
+</div>
+```
 
   </dialog>
 
+  <!-- =====================================================
+       PROFILE VIEW
+       ===================================================== -->
 
-  <!-- ================= PROFILE ================= -->
-  <dialog id="profileDialog" class="modal profile-modal">
+  <dialog
+    id="profileDialog"
+    class="modal profile-modal"
+  >
 
-    <button
-      id="closeProfile"
-      class="close-btn profile-close"
-      type="button"
-    >
-      ×
-    </button>
+```
+<button
+  id="closeProfile"
+  class="close-btn profile-close"
+  type="button"
+>
+  ×
+</button>
 
-    <div id="profileContent"></div>
+
+<div
+  id="profileContent"
+></div>
+```
 
   </dialog>
 
+  <!-- =====================================================
+       PRIVACY
+       ===================================================== -->
 
-  <!-- ================= SUPABASE ================= -->
-  
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js"></script>
+  <dialog
+    id="privacyDialog"
+    class="modal"
+  >
+
+```
+<div class="modal-header">
+
+  <div>
+
+    <span class="modal-icon">
+      🔐
+    </span>
+
+    <h3>
+      Privacy
+    </h3>
+
+    <p>
+      Keep your account and chats safe.
+    </p>
+
+  </div>
+
+
+  <button
+    id="closePrivacy"
+    class="close-btn"
+    type="button"
+  >
+    ×
+  </button>
+
+</div>
+
+
+<div class="privacy-content">
+
+  <div class="privacy-item">
+    🛡️
+    <span>
+      Never share passwords.
+    </span>
+  </div>
+
+
+  <div class="privacy-item">
+    📍
+    <span>
+      Don't share your address.
+    </span>
+  </div>
+
+
+  <div class="privacy-item">
+    📞
+    <span>
+      Don't share private phone numbers.
+    </span>
+  </div>
+
+
+  <div class="privacy-item">
+    🔗
+    <span>
+      Be careful with unknown links.
+    </span>
+  </div>
+
+
+  <div class="privacy-item">
+    👥
+    <span>
+      Only chat with people you trust.
+    </span>
+  </div>
+
+</div>
+```
+
+  </dialog>
+
+  <!-- =====================================================
+       SUPABASE
+       ===================================================== -->
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  ></script>
+
+  <!-- =====================================================
+       Q1 APP
+       ===================================================== -->
+
+  <script src="app.js"></script>
+
+  <!-- =====================================================
+       MOBILE SAFETY
+       ===================================================== -->
+
+  <script>
+    window.addEventListener("pageshow", function () {
+      document.body.classList.remove("loading");
+    });
+
+    window.addEventListener("resize", function () {
+      document.documentElement.style.setProperty(
+        "--q1-vh",
+        window.innerHeight + "px"
+      );
+    });
+
+    document.documentElement.style.setProperty(
+      "--q1-vh",
+      window.innerHeight + "px"
+    );
+  </script>
 
 </body>
 </html>
