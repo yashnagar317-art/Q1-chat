@@ -6,17 +6,13 @@
   --primary: #087469;
   --primary-dark: #065c54;
   --primary-soft: #e9f7f4;
-
   --bg: #f3f6f8;
   --surface: #ffffff;
   --surface-2: #f8fafb;
-
   --text: #17202a;
   --muted: #69737e;
   --border: #e2e7eb;
-
   --danger: #d9534f;
-
   --shadow: 0 10px 30px rgba(20, 35, 45, 0.08);
 }
 
@@ -24,13 +20,10 @@ html[data-theme="dark"] {
   --bg: #111719;
   --surface: #182022;
   --surface-2: #202a2d;
-
   --text: #f2f6f7;
   --muted: #a8b4b8;
   --border: #2e3a3d;
-
   --primary-soft: #153a35;
-
   --shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
 }
 
@@ -47,8 +40,6 @@ body {
   color: var(--text);
   overflow: hidden;
 }
-
-/* ================= HEADER ================= */
 
 .topbar {
   height: 64px;
@@ -132,8 +123,6 @@ body {
   color: var(--primary);
 }
 
-/* ================= NAV ================= */
-
 .filter-bar {
   height: 48px;
   display: flex;
@@ -143,6 +132,7 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .filter {
@@ -155,6 +145,7 @@ body {
   font-size: 12px;
   cursor: pointer;
   transition: 0.2s;
+  white-space: nowrap;
 }
 
 .filter:hover {
@@ -167,16 +158,13 @@ body {
   font-weight: 700;
 }
 
-/* ================= APP ================= */
-
 .app {
   height: calc(100vh - 112px);
   display: grid;
   grid-template-columns: 330px 1fr;
+  gap: 0;
   min-width: 0;
 }
-
-/* ================= SIDEBAR ================= */
 
 .sidebar {
   background: var(--surface);
@@ -193,6 +181,7 @@ body {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  gap: 10px;
 }
 
 .sidebar-header h2 {
@@ -214,9 +203,8 @@ body {
   place-items: center;
   border-radius: 9px;
   background: var(--primary-soft);
+  flex-shrink: 0;
 }
-
-/* ================= SEARCH ================= */
 
 .search-box {
   margin: 4px 14px 12px;
@@ -250,8 +238,6 @@ body {
   color: var(--muted);
 }
 
-/* ================= SAFETY ================= */
-
 .safety-card {
   margin: 0 14px 10px;
   display: flex;
@@ -264,6 +250,7 @@ body {
 
 .safety-icon {
   font-size: 18px;
+  flex-shrink: 0;
 }
 
 .safety-card strong {
@@ -276,8 +263,6 @@ body {
   font-size: 9px;
   line-height: 1.4;
 }
-
-/* ================= PRIVATE CHAT ================= */
 
 .private-chat-card {
   margin: 0 14px 10px;
@@ -313,8 +298,6 @@ body {
   color: var(--muted);
   font-size: 9px;
 }
-
-/* ================= USERS ================= */
 
 .users-list {
   flex: 1;
@@ -395,6 +378,7 @@ body {
 
 .status-indicator {
   font-size: 9px;
+  flex-shrink: 0;
 }
 
 .unread-badge {
@@ -408,9 +392,8 @@ body {
   place-items: center;
   font-size: 9px;
   font-weight: 700;
+  flex-shrink: 0;
 }
-
-/* ================= CHAT ================= */
 
 .chat {
   min-width: 0;
@@ -418,8 +401,6 @@ body {
   flex-direction: column;
   background: var(--bg);
 }
-
-/* ================= CHAT HEADER ================= */
 
 .chat-header {
   height: 70px;
@@ -430,6 +411,7 @@ body {
   padding: 10px 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  gap: 10px;
 }
 
 .chat-person {
@@ -452,6 +434,8 @@ body {
   font-weight: 800;
   cursor: pointer;
   border: none;
+  padding: 0;
+  font-size: 14px;
 }
 
 .chat-avatar.boy {
@@ -468,6 +452,7 @@ body {
 
 .chat-person-text {
   min-width: 0;
+  flex: 1;
 }
 
 .chat-person-text strong {
@@ -476,6 +461,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin: 0;
 }
 
 .chat-person-text span {
@@ -500,6 +486,7 @@ body {
   font-size: 10px;
   cursor: pointer;
   transition: 0.2s;
+  white-space: nowrap;
 }
 
 .chat-actions button:hover:not(:disabled) {
@@ -511,8 +498,6 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
-
-/* ================= MESSAGES ================= */
 
 .messages {
   flex: 1;
@@ -566,8 +551,6 @@ body {
   font-size: 10px;
 }
 
-/* ================= MESSAGE ================= */
-
 .msg {
   max-width: min(70%, 650px);
   padding: 10px 13px;
@@ -589,8 +572,21 @@ body {
   border-radius: 13px 13px 4px 13px;
 }
 
-.message-text {
-  word-break: break-word;
+.msg img,
+.msg video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin-top: 5px;
+}
+
+.msg a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.msg.me a {
+  color: white;
 }
 
 .meta {
@@ -610,8 +606,6 @@ body {
     transform: translateY(0);
   }
 }
-
-/* ================= COMPOSER ================= */
 
 .composer {
   flex-shrink: 0;
@@ -651,6 +645,7 @@ body {
   place-items: center;
   opacity: 0.7;
   transition: 0.2s;
+  padding: 0;
 }
 
 .attachment-buttons button:hover {
@@ -710,6 +705,7 @@ body {
   justify-content: center;
   gap: 2px;
   font-size: 10px;
+  padding: 0;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -721,8 +717,6 @@ body {
   opacity: 0.45;
   cursor: not-allowed;
 }
-
-/* ================= MODALS ================= */
 
 .modal {
   width: min(430px, calc(100% - 24px));
@@ -746,6 +740,7 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 20px;
+  gap: 15px;
 }
 
 .modal-header h3 {
@@ -776,6 +771,7 @@ body {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  padding: 0;
 }
 
 .profile-close {
@@ -804,6 +800,7 @@ body {
   font-size: 20px;
   cursor: pointer;
   border: none;
+  padding: 0;
 }
 
 .settings-avatar.boy {
@@ -840,6 +837,7 @@ body {
   background: var(--surface-2);
   color: var(--text);
   font-size: 12px;
+  font-family: inherit;
 }
 
 .form-group input:focus,
@@ -867,12 +865,7 @@ body {
   font-weight: 700;
   transition: 0.2s;
   border: none;
-}
-
-.secondary-btn.small {
-  padding: 6px 10px;
-  font-size: 10px;
-  white-space: nowrap;
+  font-family: inherit;
 }
 
 .secondary-btn {
@@ -907,26 +900,26 @@ body {
   line-height: 1.4;
 }
 
-/* ================= BLOCKED ================= */
-
 .blocked-list {
   max-height: 350px;
   overflow-y: auto;
 }
 
-.blockedrow {
+.blocked-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
+  gap: 10px;
 }
 
-.blockedrow span {
+.blocked-row span {
   font-size: 12px;
+  flex: 1;
 }
 
-.blockedrow button {
+.blocked-row button {
   padding: 6px 10px;
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -935,9 +928,10 @@ body {
   font-size: 10px;
   cursor: pointer;
   transition: 0.2s;
+  flex-shrink: 0;
 }
 
-.blockedrow button:hover {
+.blocked-row button:hover {
   border-color: var(--primary);
   color: var(--primary);
 }
@@ -949,10 +943,9 @@ body {
   font-size: 11px;
 }
 
-/* ================= PROFILE VIEW ================= */
-
-.profile-modal .dialog-card {
-  position: relative;
+.profile-modal .close-btn {
+  position: static;
+  margin-bottom: 10px;
 }
 
 .profile-view {
@@ -996,8 +989,6 @@ body {
   font-size: 11px;
 }
 
-/* ================= RESPONSIVE ================= */
-
 @media (max-width: 768px) {
   .app {
     grid-template-columns: 1fr;
@@ -1012,13 +1003,15 @@ body {
     z-index: 10;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
+    background: var(--surface);
   }
 
-  body.chat-open .sidebar {
-    transform: translateX(-100%);
+  .sidebar.visible {
+    transform: translateX(0);
   }
 
-  body.chat-open .chat {
+  .chat {
+    position: relative;
     z-index: 11;
   }
 
@@ -1029,14 +1022,6 @@ body {
 
   .chat-actions button {
     padding: 6px 8px;
-    font-size: 9px;
-  }
-
-  .chat-person {
-    min-width: 0;
-  }
-
-  .chat-person-text span {
     font-size: 9px;
   }
 }
@@ -1064,6 +1049,16 @@ body {
     font-size: 10px;
   }
 
+  .chat-header {
+    padding: 8px 12px;
+    height: 60px;
+  }
+
+  .chat-actions button {
+    padding: 5px 8px;
+    font-size: 9px;
+  }
+
   .messages {
     padding: 15px;
   }
@@ -1075,15 +1070,25 @@ body {
   .composer {
     flex-direction: column;
     gap: 4px;
+    padding: 8px;
   }
 
   .send-btn {
     min-width: auto;
     width: 100%;
+    min-height: 40px;
   }
 
   .modal {
     width: calc(100% - 12px);
     max-height: 90vh;
+  }
+
+  .sidebar-header {
+    padding: 15px 12px 10px;
+  }
+
+  .search-box {
+    margin: 4px 10px 10px;
   }
 }
