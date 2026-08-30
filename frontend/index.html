@@ -1,16 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <meta
     name="description"
-    content="Q1 Chat — a simple and safe chat experience."
+    content="Q1 Chat — Simple, safe and connected."
   >
 
   <title>Q1 Chat</title>
@@ -20,33 +16,33 @@
 
 <body>
 
-  <!-- =====================================================
-       HEADER
-       ===================================================== -->
-
-  <header>
+  <!-- ================= HEADER ================= -->
+  <header class="topbar">
 
     <div class="brand">
-      <b>Q1 <span>Chat</span></b>
-      <small>Simple • Safe • Connected</small>
+      <div class="brand-logo">Q1</div>
+
+      <div class="brand-text">
+        <strong>Q1 Chat</strong>
+        <span>Simple • Safe • Connected</span>
+      </div>
     </div>
 
-    <div class="header-actions">
+    <div class="top-actions">
 
-      <span
-        id="authStatus"
-        class="auth-status"
-        aria-live="polite"
-      >
+      <div id="authStatus" class="connection">
+        <span class="connection-dot"></span>
         Connecting...
-      </span>
+      </div>
 
       <button
         id="settingsBtn"
+        class="icon-btn"
         type="button"
         aria-label="Open settings"
       >
-        ⚙ Settings
+        ⚙️
+        <span>Settings</span>
       </button>
 
     </div>
@@ -54,152 +50,142 @@
   </header>
 
 
-  <!-- =====================================================
-       NAVIGATION
-       ===================================================== -->
-
-  <nav aria-label="Chat filters">
+  <!-- ================= NAV ================= -->
+  <nav class="filter-bar">
 
     <button
-      class="active"
+      class="filter active"
       data-filter="online"
       type="button"
     >
-      🟢 Online
+      <span>🟢</span>
+      Online
     </button>
 
     <button
+      class="filter"
       data-filter="unread"
       type="button"
     >
-      🔵 Unread
+      <span>🔵</span>
+      Unread
     </button>
 
     <button
+      class="filter"
       data-filter="recent"
       type="button"
     >
-      🕘 Recent
+      <span>🕘</span>
+      Recent
     </button>
 
     <button
+      class="filter"
       data-filter="friends"
       type="button"
     >
-      ♥ Friends
+      <span>♥</span>
+      Friends
     </button>
 
   </nav>
 
 
-  <!-- =====================================================
-       MAIN APPLICATION
-       ===================================================== -->
+  <!-- ================= APP ================= -->
+  <main class="app">
 
-  <main>
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
 
-    <!-- ===================================================
-         USERS SIDEBAR
-         =================================================== -->
-
-    <aside>
-
-      <div class="sidebar-head">
+      <div class="sidebar-header">
 
         <div>
           <h2>People</h2>
+          <span id="userCount">0 people</span>
+        </div>
 
-          <span id="userCount">
-            0 people
-          </span>
+        <div class="people-icon">
+          👥
         </div>
 
       </div>
 
 
       <!-- SEARCH -->
+      <div class="search-box">
 
-      <div class="search-wrap">
-
-        <span aria-hidden="true">
-          🔎
-        </span>
+        <span>🔎</span>
 
         <input
           id="search"
           type="search"
-          placeholder="Search users..."
-          autocomplete="off"
+          placeholder="Search people..."
           maxlength="50"
+          autocomplete="off"
           aria-label="Search users"
         >
 
       </div>
 
 
-      <!-- SAFETY NOTICE -->
+      <!-- SAFETY -->
+      <div class="safety-card">
 
-      <div class="note">
-
-        <span aria-hidden="true">
+        <div class="safety-icon">
           🛡️
-        </span>
+        </div>
 
-        <span>
-          Unsafe content and external promotional/contact
-          links are blocked.
-        </span>
+        <div>
+          <strong>Stay safe</strong>
+          <p>
+            Never share passwords, addresses,
+            phone numbers or private contact details.
+          </p>
+        </div>
 
       </div>
 
 
-      <!-- USER LIST -->
-
+      <!-- USERS -->
       <div
         id="users"
+        class="users-list"
         aria-live="polite"
       ></div>
 
     </aside>
 
 
-    <!-- ===================================================
-         CHAT SECTION
-         =================================================== -->
-
-    <section class="chat-section">
-
+    <!-- ============ CHAT ============ -->
+    <section class="chat">
 
       <!-- CHAT HEADER -->
+      <div class="chat-header">
 
-      <div class="chathead">
-
-        <div class="chat-user-info">
+        <div class="chat-person">
 
           <div
             id="chatAvatar"
             class="chat-avatar"
-            aria-hidden="true"
           >
             ?
           </div>
 
-          <div>
+          <div class="chat-person-text">
 
             <strong id="chatName">
               Select a person
             </strong>
 
-            <small id="status">
-              Choose a chat
-            </small>
+            <span id="status">
+              Choose someone from the list
+            </span>
 
           </div>
 
         </div>
 
-
-        <!-- CHAT ACTIONS -->
 
         <div class="chat-actions">
 
@@ -224,10 +210,7 @@
       </div>
 
 
-      <!-- =================================================
-           MESSAGES
-           ================================================= -->
-
+      <!-- MESSAGES -->
       <div
         id="messages"
         class="messages"
@@ -237,51 +220,45 @@
 
         <div class="welcome">
 
-          <div class="welcome-icon">
-            💬
+          <div class="welcome-logo">
+            Q1
           </div>
 
-          <h2>
-            Welcome to Q1 Chat
-          </h2>
+          <h2>Welcome to Q1 Chat</h2>
 
           <p>
-            Select a person to start a conversation.
+            Select a person from the left to start chatting.
           </p>
 
-          <small>
-            Keep conversations respectful and never share
-            private information.
-          </small>
+          <div class="welcome-tip">
+            🛡️ Keep conversations respectful and safe.
+          </div>
 
         </div>
 
       </div>
 
 
-      <!-- =================================================
-           MESSAGE COMPOSER
-           ================================================= -->
-
+      <!-- COMPOSER -->
       <div class="composer">
 
-        <div class="composer-box">
+        <div class="composer-main">
 
           <textarea
             id="input"
             disabled
-            placeholder="Write a message..."
-            maxlength="2000"
             rows="1"
+            maxlength="2000"
+            placeholder="Write a message..."
             autocomplete="off"
             aria-label="Write a message"
           ></textarea>
 
-          <div class="composer-bottom">
+          <div class="composer-info">
 
-            <small>
-              🔒 Keep it safe
-            </small>
+            <span>
+              🔒 Safe chat
+            </span>
 
             <span id="charCount">
               0/2000
@@ -291,14 +268,14 @@
 
         </div>
 
-
         <button
           id="send"
+          class="send-btn"
           type="button"
           disabled
-          aria-label="Send message"
         >
-          Send
+          <span>Send</span>
+          <span>➤</span>
         </button>
 
       </div>
@@ -308,30 +285,21 @@
   </main>
 
 
-  <!-- =====================================================
-       SETTINGS DIALOG
-       ===================================================== -->
+  <!-- ================= SETTINGS ================= -->
+  <dialog id="settings" class="modal">
 
-  <dialog id="settings">
-
-    <div class="dialog-head">
+    <div class="modal-header">
 
       <div>
-
-        <h3>
-          ⚙ Settings
-        </h3>
-
-        <p>
-          Customize your Q1 Chat profile.
-        </p>
-
+        <span class="modal-icon">⚙️</span>
+        <h3>Settings</h3>
+        <p>Customize your Q1 Chat profile.</p>
       </div>
 
       <button
         id="closeSettings"
+        class="close-btn"
         type="button"
-        aria-label="Close settings"
       >
         ×
       </button>
@@ -339,11 +307,11 @@
     </div>
 
 
-    <!-- DISPLAY NAME -->
+    <div class="form-group">
 
-    <label for="displayName">
-
-      Display name
+      <label for="displayName">
+        Display name
+      </label>
 
       <input
         id="displayName"
@@ -353,14 +321,14 @@
         autocomplete="nickname"
       >
 
-    </label>
+    </div>
 
 
-    <!-- GENDER -->
+    <div class="form-group">
 
-    <label for="gender">
-
-      Gender
+      <label for="gender">
+        Gender
+      </label>
 
       <select id="gender">
 
@@ -378,113 +346,99 @@
 
       </select>
 
-    </label>
+    </div>
 
 
-    <!-- AGE -->
+    <div class="settings-section">
 
-    <label for="age">
+      <button
+        id="blocked"
+        class="secondary-btn"
+        type="button"
+      >
+        🚫 Blocked Users
+      </button>
 
-      Age group
+      <button
+        id="themeToggle"
+        class="secondary-btn"
+        type="button"
+      >
+        🌙 Dark
+      </button>
 
-      <select id="age">
+    </div>
 
-        <option value="13-17">
-          13-17
-        </option>
-
-        <option value="18+">
-          18+
-        </option>
-
-      </select>
-
-    </label>
-
-
-    <!-- BLOCKED USERS -->
-
-    <button
-      id="blocked"
-      type="button"
-      class="secondary-btn"
-    >
-      🚫 Blocked Users
-    </button>
-
-
-    <!-- SAVE -->
 
     <button
       id="save"
-      type="button"
       class="primary-btn"
+      type="button"
     >
       Save settings
     </button>
 
 
-    <p class="dialog-safety">
-
-      🛡️ For safety, never share passwords, home addresses,
-      phone numbers or private contact details.
-
-    </p>
+    <div class="settings-safe">
+      🛡️ Q1 Chat safety reminder:
+      don't share private information.
+    </div>
 
   </dialog>
 
 
-  <!-- =====================================================
-       BLOCKED USERS DIALOG
-       ===================================================== -->
+  <!-- ================= BLOCKED ================= -->
+  <dialog id="blockedDialog" class="modal">
 
-  <dialog id="blockedDialog">
-
-    <div class="dialog-head">
+    <div class="modal-header">
 
       <div>
-
-        <h3>
-          🚫 Blocked Users
-        </h3>
-
-        <p>
-          Manage people you have blocked.
-        </p>
-
+        <span class="modal-icon">🚫</span>
+        <h3>Blocked Users</h3>
+        <p>Manage people you have blocked.</p>
       </div>
 
       <button
         id="closeBlocked"
+        class="close-btn"
         type="button"
-        aria-label="Close blocked users"
       >
         ×
       </button>
 
     </div>
 
+    <div id="blockedList" class="blocked-list">
 
-    <div id="blockedList">
-
-      <p>
+      <div class="empty-blocked">
         No blocked users.
-      </p>
+      </div>
 
     </div>
 
   </dialog>
 
 
-  <!-- =====================================================
-       SUPABASE
-       IMPORTANT:
-       No inline JavaScript is used.
-       ===================================================== -->
+  <!-- ================= PROFILE ================= -->
+  <dialog id="profileDialog" class="modal profile-modal">
 
-  <!-- Load the Supabase browser client (UMD bundle) -->
+    <button
+      id="closeProfile"
+      class="close-btn profile-close"
+      type="button"
+    >
+      ×
+    </button>
+
+    <div id="profileContent"></div>
+
+  </dialog>
+
+
+  <!-- ================= SUPABASE ================= -->
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <!-- App script (deferred so DOMContentLoaded still works) -->
+
   <script src="app.js" defer></script>
 
 </body>
