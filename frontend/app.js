@@ -111,16 +111,17 @@ HELPERS
 ========================================================= */
 
 function escapeHTML(value = "") {
-return String(value)
-.replace(/&/g, "&")
-.replace(/</g, "<")
-.replace(/>/g, ">")
-.replace(/"/g, """)
-.replace(/'/g, "'");
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function escapeAttribute(value = "") {
-return escapeHTML(value).replace(/`/g, "`");
+    return escapeHTML(value)
+        .replace(/`/g, "&#096;");
 }
 
 function normalizeUsername(value = "") {
@@ -3649,65 +3650,85 @@ STARTUP
 ========================================================= */
 
 async function startApplicationData() {
-await ensureProfile();
+    if (!state.user) {
+        throw new Error("No authenticated user.");
+    }
 
-```
-renderOwnProfile();
+    setStatus("Loading profile...");
 
-await Promise.all([
-    loadFriends(),
-    loadBlockedUsers(),
-    loadUsers(),
-    loadUnreadCounts()
-]);
+    await ensureProfile();
 
-await startPresence();
-await startMessageRealtime();
+    renderOwnProfile();
 
-renderUsers();
-renderChatHeader();
-renderMessages();
+    setStatus("Loading chats...");
 
-clearError();
+    await Promise.allSettled([
+        loadFriends(),
+        loadBlockedUsers(),
+        loadUsers(),
+        loadUnreadCounts()
+    ]);
 
-setStatus(
-    "Connected"
-);
+    renderUsers();
+    renderChatHeader();
+    renderMessages();
 
-console.log(
-    "Q1 Chat started successfully"
-);
-```
+    /*
+     * Realtime should NOT prevent the app from opening.
+     */
+    setStatus("Connected");
 
+    startPresence().catch(error => {
+        console.warn(
+            "Presence unavailable:",
+            error
+        );
+    });
+
+    startMessageRealtime().catch(error => {
+        console.warn(
+            "Message realtime unavailable:",
+            error
+        );
+    });
+
+    console.log(
+        "Q1 Chat started successfully"
+    );
 }
-
 async function init() {
-if (state.initialized) return;
+    if (state.initialized) return;
 
-```
-state.initialized = true;
+    state.initialized = true;
 
-try {
-    loadTheme();
+    try {
+        loadTheme();
+        updateCharacterCount();
 
-    updateCharacterCount();
+        setupEventListeners();
+        setupMobileBehavior();
+        setupAuthListener();
 
-    setupEventListeners();
-    setupMobileBehavior();
-    setupAuthListener();
+        setStatus("Connecting...");
 
-    setStatus(
-        "Connecting..."
-    );
+        await ensureAnonymousAuth();
 
-    await ensureAnonymousAuth();
+        setStatus("Authenticated.");
 
-    await startApplicationData();
-} catch (error) {
-    console.error(
-        "Q1 Chat startup failed:",
-        error
-    );
+        await startApplicationData();
+
+    } catch (error) {
+        console.error(
+            "Q1 Chat startup failed:",
+            error
+        );
+
+        showError(
+            error?.message ||
+            "Q1 Chat could not start."
+        );
+    }
+}
 
     showError(
         "Q1 Chat could not start. Check the browser console and Supabase configuration.",
