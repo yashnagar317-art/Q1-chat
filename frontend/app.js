@@ -9,7 +9,9 @@
    1. SUPABASE CONFIG
    ========================================================= */
 
-const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
+// NOTE: Do NOT commit your anon/publishable key to source control.
+// Set SUPABASE_KEY to your project's anon (publishable) key locally.
+const SUPABASE_URL = "https://db.ubkvpmwpvmozhbwlxhmx.supabase.co";
 
 const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE";
 
@@ -18,6 +20,7 @@ const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE";
    2. CREATE SUPABASE CLIENT
    ========================================================= */
 
+// When using the UMD bundle from the CDN, the global is `window.supabase`
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_KEY
@@ -109,7 +112,7 @@ function escapeHTML(value) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
 
@@ -177,18 +180,32 @@ async function startQ1Chat() {
          Anonymous login
          --------------------------------------------- */
 
-      const {
-        data,
-        error
-      } = await supabaseClient.auth.signInAnonymously();
+      // Use signInAnonymously if available, otherwise attempt the older fallback.
+      let anonResult;
 
-
-      if (error) {
-        throw error;
+      if (typeof supabaseClient.auth.signInAnonymously === 'function') {
+        anonResult = await supabaseClient.auth.signInAnonymously();
+      } else if (typeof supabaseClient.auth.signUp === 'function') {
+        // Some older/newer SDKs may not expose an explicit anonymous method.
+        // This fallback will try to create an "anonymous" user by calling signUp with no credentials —
+        // typically this will fail for projects that don't allow it, so the preferred path is
+        // to supply the publishable anon key and use signInAnonymously.
+        try {
+          anonResult = await supabaseClient.auth.signUp({});
+        } catch (e) {
+          anonResult = { error: e };
+        }
+      } else {
+        throw new Error('Anonymous auth is not supported by the loaded Supabase client.');
       }
 
 
-      currentUser = data.user;
+      if (anonResult.error) {
+        throw anonResult.error;
+      }
+
+
+      currentUser = anonResult.data?.user || anonResult.user;
     }
 
 
@@ -1623,4 +1640,3 @@ document.addEventListener(
   "DOMContentLoaded",
   startQ1Chat
 );
-```

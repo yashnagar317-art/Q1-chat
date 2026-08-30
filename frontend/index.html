@@ -482,17 +482,10 @@
        No inline JavaScript is used.
        ===================================================== -->
 
-  <script
-   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js"></script>
-  ></script>
-
-
-  <!-- =====================================================
-       Q1 CHAT APP
-       ===================================================== -->
-
-  <script src="app.js"></script>
+  <!-- Load the Supabase browser client (UMD bundle) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- App script (deferred so DOMContentLoaded still works) -->
+  <script src="app.js" defer></script>
 
 </body>
 </html>
