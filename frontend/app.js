@@ -56,7 +56,6 @@ userCount: $("userCount"),
 search: $("search"),
 users: $("users"),
 
-```
 chatAvatar: $("chatAvatar"),
 chatName: $("chatName"),
 status: $("status"),
@@ -102,7 +101,6 @@ profileContent: $("profileContent"),
 
 privateChatStatus: $("privateChatStatus"),
 privateChatBtn: $("privateChatBtn")
-```
 
 };
 
@@ -139,12 +137,12 @@ return typeof value === "string" &&
 function showError(message, error = null) {
 console.error("[Q1 Chat]", message, error || "");
 
-```
+ 
 if (dom.authStatus) {
     dom.authStatus.textContent = message;
     dom.authStatus.classList.add("error");
 }
-```
+ 
 
 }
 
@@ -163,7 +161,7 @@ dom.authStatus.textContent = message;
 function formatTime(dateString) {
 if (!dateString) return "";
 
-```
+ 
 const date = new Date(dateString);
 
 if (Number.isNaN(date.getTime())) return "";
@@ -172,18 +170,18 @@ return date.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit"
 });
-```
+ 
 
 }
 
 function formatRecentTime(dateString) {
 if (!dateString) return 0;
 
-```
+ 
 const time = new Date(dateString).getTime();
 
 return Number.isNaN(time) ? 0 : time;
-```
+ 
 
 }
 
@@ -192,21 +190,21 @@ if (profile?.avatar_url) {
 return profile.avatar_url;
 }
 
-```
+ 
 const name =
     profile?.display_name ||
     profile?.username ||
     fallback;
 
 return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
-```
+ 
 
 }
 
 function setImageSource(element, profile) {
 if (!element) return;
 
-```
+ 
 const avatar = getAvatar(profile);
 
 if (element.tagName === "IMG") {
@@ -218,7 +216,7 @@ if (element.tagName === "IMG") {
 } else {
     element.style.backgroundImage = `url("${escapeAttribute(avatar)}")`;
 }
-```
+ 
 
 }
 
@@ -277,7 +275,7 @@ return Number(state.unreadCounts[userId] || 0);
 function setUnreadCount(userId, count) {
 if (!userId) return;
 
-```
+ 
 const numericCount = Math.max(0, Number(count) || 0);
 
 if (numericCount === 0) {
@@ -285,39 +283,39 @@ if (numericCount === 0) {
 } else {
     state.unreadCounts[userId] = numericCount;
 }
-```
+ 
 
 }
 
 function incrementUnread(userId) {
 if (!userId || userId === state.user?.id) return;
 
-```
+ 
 setUnreadCount(
     userId,
     getUnreadCount(userId) + 1
 );
-```
+ 
 
 }
 
 function isNearBottom(container, threshold = 120) {
 if (!container) return true;
 
-```
+ 
 return (
     container.scrollHeight -
     container.scrollTop -
     container.clientHeight
 ) <= threshold;
-```
+ 
 
 }
 
 function scrollMessagesToBottom(force = false) {
 if (!dom.messages) return;
 
-```
+ 
 if (!force && !isNearBottom(dom.messages)) return;
 
 requestAnimationFrame(() => {
@@ -325,24 +323,24 @@ requestAnimationFrame(() => {
 
     dom.messages.scrollTop = dom.messages.scrollHeight;
 });
-```
+ 
 
 }
 
 function updateCharacterCount() {
 if (!dom.input || !dom.charCount) return;
 
-```
+ 
 dom.charCount.textContent =
     `${dom.input.value.length}/2000`;
-```
+ 
 
 }
 
 function closeDialog(dialog) {
 if (!dialog) return;
 
-```
+ 
 if (typeof dialog.close === "function") {
     try {
         dialog.close();
@@ -352,14 +350,14 @@ if (typeof dialog.close === "function") {
 
 dialog.removeAttribute("open");
 dialog.classList.remove("open", "active");
-```
+ 
 
 }
 
 function openDialog(dialog) {
 if (!dialog) return;
 
-```
+ 
 if (typeof dialog.showModal === "function") {
     try {
         if (!dialog.open) {
@@ -371,23 +369,23 @@ if (typeof dialog.showModal === "function") {
 
 dialog.setAttribute("open", "");
 dialog.classList.add("open", "active");
-```
+ 
 
 }
 
 function setDialogText(element, text) {
 if (!element) return;
 
-```
+ 
 element.textContent = text;
-```
+ 
 
 }
 
 function debounce(fn, delay = 250) {
 let timer = null;
 
-```
+ 
 return (...args) => {
     clearTimeout(timer);
 
@@ -395,7 +393,7 @@ return (...args) => {
         fn(...args);
     }, delay);
 };
-```
+ 
 
 }
 
@@ -415,7 +413,7 @@ const adjectives = [
 "Clever"
 ];
 
-```
+ 
 const animals = [
     "Griffin",
     "Fox",
@@ -438,7 +436,7 @@ const animal =
     animals[Math.floor(Math.random() * animals.length)];
 
 return `${adjective}${animal}`;
-```
+ 
 
 }
 
@@ -446,7 +444,7 @@ async function generateUniqueUsername() {
 for (let attempt = 0; attempt < 25; attempt++) {
 const candidate = generateReadableUsername();
 
-```
+ 
     const { data, error } = await supabaseClient
         .from("profiles")
         .select("id")
@@ -464,14 +462,14 @@ const candidate = generateReadableUsername();
 }
 
 return `QUser${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
-```
+ 
 
 }
 
 function normalizeProfile(profile) {
 if (!profile) return null;
 
-```
+ 
 return {
     ...profile,
     display_name:
@@ -479,14 +477,14 @@ return {
     username:
         profile.username?.trim() || ""
 };
-```
+ 
 
 }
 
 function normalizeMessage(message) {
 if (!message) return null;
 
-```
+ 
 return {
     ...message,
     id: message.id,
@@ -497,7 +495,7 @@ return {
     media_path: message.media_path || null,
     created_at: message.created_at || new Date().toISOString()
 };
-```
+ 
 
 }
 
@@ -509,7 +507,7 @@ function loadTheme() {
 const savedTheme =
 localStorage.getItem("q1-theme") || "light";
 
-```
+ 
 state.currentTheme =
     savedTheme === "dark" ? "dark" : "light";
 
@@ -530,7 +528,7 @@ if (dom.themeToggle) {
             state.currentTheme === "dark";
     }
 }
-```
+ 
 
 }
 
@@ -538,7 +536,7 @@ function applyTheme(theme) {
 state.currentTheme =
 theme === "dark" ? "dark" : "light";
 
-```
+ 
 document.documentElement.dataset.theme =
     state.currentTheme;
 
@@ -561,7 +559,7 @@ if (dom.themeToggle) {
             state.currentTheme === "dark";
     }
 }
-```
+ 
 
 }
 
@@ -576,7 +574,7 @@ data: sessionData,
 error: sessionError
 } = await supabaseClient.auth.getSession();
 
-```
+ 
     if (sessionError) {
         throw sessionError;
     }
@@ -610,7 +608,7 @@ error: sessionError
 
     throw error;
 }
-```
+ 
 
 }
 
@@ -619,7 +617,7 @@ supabaseClient.auth.onAuthStateChange(
 async (_event, session) => {
 if (!session?.user) return;
 
-```
+ 
         if (!state.user || state.user.id !== session.user.id) {
             state.user = session.user;
 
@@ -635,7 +633,7 @@ if (!session?.user) return;
         }
     }
 );
-```
+ 
 
 }
 
@@ -648,7 +646,7 @@ if (!state.user) {
 throw new Error("No authenticated user.");
 }
 
-```
+ 
 const {
     data: existing,
     error: fetchError
@@ -741,14 +739,14 @@ if (error) {
 state.profile = normalizeProfile(data);
 
 return state.profile;
-```
+ 
 
 }
 
 function renderOwnProfile() {
 if (!state.profile) return;
 
-```
+ 
 setImageSource(
     dom.myProfileAvatar,
     state.profile
@@ -763,14 +761,14 @@ if (dom.gender) {
     dom.gender.value =
         state.profile.gender || "";
 }
-```
+ 
 
 }
 
 async function saveProfile() {
 if (!state.user) return;
 
-```
+ 
 const displayName =
     dom.displayName?.value.trim() || "";
 
@@ -810,14 +808,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function uploadProfilePhoto(file) {
 if (!file || !state.user) return;
 
-```
+ 
 const validation = validateImageFile(file);
 
 if (!validation.valid) {
@@ -892,7 +890,7 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
@@ -903,7 +901,7 @@ FRIENDS
 async function loadFriends() {
 if (!state.user) return;
 
-```
+ 
 try {
     const {
         data,
@@ -975,14 +973,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function findFriendRow(userId) {
 if (!state.user || !userId) return null;
 
-```
+ 
 const {
     data,
     error
@@ -999,14 +997,14 @@ if (error && error.code !== "PGRST116") {
 }
 
 return data || null;
-```
+ 
 
 }
 
 async function sendFriendRequest(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 try {
     const existing = await findFriendRow(userId);
 
@@ -1045,14 +1043,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function acceptFriendRequest(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 try {
     const row = await findFriendRow(userId);
 
@@ -1083,14 +1081,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function rejectFriendRequest(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 try {
     const row = await findFriendRow(userId);
 
@@ -1116,14 +1114,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function removeFriend(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 try {
     const row = await findFriendRow(userId);
 
@@ -1149,14 +1147,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 function renderFriendButton() {
 if (!dom.addFriend || !state.selectedUser) return;
 
-```
+ 
 const userId = state.selectedUser.id;
 
 dom.addFriend.disabled = false;
@@ -1182,14 +1180,14 @@ if (hasOutgoingRequest(userId)) {
 
 dom.addFriend.textContent = "❤️ Add Friend";
 dom.addFriend.classList.remove("is-friend");
-```
+ 
 
 }
 
 async function handleFriendButton() {
 if (!state.selectedUser) return;
 
-```
+ 
 const userId = state.selectedUser.id;
 
 if (isFriend(userId)) {
@@ -1208,7 +1206,7 @@ if (hasOutgoingRequest(userId)) {
 }
 
 await sendFriendRequest(userId);
-```
+ 
 
 }
 
@@ -1219,7 +1217,7 @@ BLOCK SYSTEM
 async function loadBlockedUsers() {
 if (!state.user) return;
 
-```
+ 
 try {
     const {
         data,
@@ -1254,14 +1252,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function blockUser(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 if (userId === state.user.id) return;
 
 try {
@@ -1306,14 +1304,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function unblockUser(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 try {
     const {
         error
@@ -1342,21 +1340,21 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 function renderBlockButton() {
 if (!dom.block || !state.selectedUser) return;
 
-```
+ 
 const blocked = isBlocked(
     state.selectedUser.id
 );
 
 dom.block.textContent =
     blocked ? "✓ Unblock" : "🚫 Block";
-```
+ 
 
 }
 
@@ -1367,7 +1365,7 @@ REPORT
 async function reportUser(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 const reason = window.prompt(
     "Why are you reporting this user?",
     "Inappropriate or unsafe behavior"
@@ -1408,7 +1406,7 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
@@ -1421,7 +1419,7 @@ if (!state.user || state.presenceStarted) {
 return;
 }
 
-```
+ 
 if (state.channels.presence) {
     try {
         await supabaseClient.removeChannel(
@@ -1576,14 +1574,14 @@ console.warn(
     "Q1 presence subscription:",
     status
 );
-```
+ 
 
 }
 
 async function stopPresence() {
 state.presenceStarted = false;
 
-```
+ 
 if (state.channels.presence) {
     try {
         await supabaseClient.removeChannel(
@@ -1595,7 +1593,7 @@ if (state.channels.presence) {
 }
 
 state.onlineUsers.clear();
-```
+ 
 
 }
 
@@ -1606,7 +1604,7 @@ USERS
 async function loadUsers() {
 if (!state.user || state.loadingUsers) return;
 
-```
+ 
 state.loadingUsers = true;
 
 try {
@@ -1645,14 +1643,14 @@ try {
 } finally {
     state.loadingUsers = false;
 }
-```
+ 
 
 }
 
 function userMatchesSearch(user) {
 if (!state.searchTerm) return true;
 
-```
+ 
 const term =
     state.searchTerm.toLowerCase();
 
@@ -1666,7 +1664,7 @@ return (
     displayName.includes(term) ||
     username.includes(term)
 );
-```
+ 
 
 }
 
@@ -1675,7 +1673,7 @@ switch (state.activeFilter) {
 case "online":
 return isOnline(user.id);
 
-```
+ 
     case "unread":
         return getUnreadCount(user.id) > 0;
 
@@ -1689,7 +1687,7 @@ return isOnline(user.id);
     default:
         return true;
 }
-```
+ 
 
 }
 
@@ -1700,7 +1698,7 @@ userMatchesSearch(user) &&
 userMatchesFilter(user)
 );
 
-```
+ 
 if (state.activeFilter === "recent") {
     users.sort((a, b) =>
         formatRecentTime(b.updated_at) -
@@ -1732,14 +1730,14 @@ if (state.activeFilter === "recent") {
 }
 
 return users;
-```
+ 
 
 }
 
 function renderUsers() {
 if (!dom.users) return;
 
-```
+ 
 const users =
     getSortedFilteredUsers();
 
@@ -1826,14 +1824,14 @@ dom.users.innerHTML =
             </button>
         `;
     }).join("");
-```
+ 
 
 }
 
 async function selectUser(userId) {
 if (!userId || !state.user) return;
 
-```
+ 
 const user =
     state.users.find(
         item => item.id === userId
@@ -1861,7 +1859,7 @@ document.body.classList.add(
 );
 
 scrollMessagesToBottom(true);
-```
+ 
 
 }
 
@@ -1879,7 +1877,7 @@ state.user?.id
 function messagesForSelectedUser() {
 if (!state.selectedUser) return [];
 
-```
+ 
 const otherId =
     state.selectedUser.id;
 
@@ -1894,14 +1892,14 @@ return state.messages.filter(
             message.receiver_id === state.user.id
         )
 );
-```
+ 
 
 }
 
 async function loadMessages(userId) {
 if (!state.user || !userId) return;
 
-```
+ 
 state.loadingMessages = true;
 
 try {
@@ -1943,7 +1941,7 @@ try {
 } finally {
     state.loadingMessages = false;
 }
-```
+ 
 
 }
 
@@ -1956,7 +1954,7 @@ message => message.id === messageId
 function addMessageToState(message) {
 if (!message?.id) return false;
 
-```
+ 
 if (messageExists(message.id)) {
     return false;
 }
@@ -1972,14 +1970,14 @@ state.messages.sort(
 );
 
 return true;
-```
+ 
 
 }
 
 function renderMessages() {
 if (!dom.messages) return;
 
-```
+ 
 const conversation =
     messagesForSelectedUser();
 
@@ -2004,14 +2002,14 @@ if (!conversation.length) {
 
 dom.messages.innerHTML =
     conversation.map(renderMessageHTML).join("");
-```
+ 
 
 }
 
 function renderMessageHTML(message) {
 const own = isOwnMessage(message);
 
-```
+ 
 let body = "";
 
 if (message.message_type === "image") {
@@ -2071,14 +2069,14 @@ return `
         </div>
     </div>
 `;
-```
+ 
 
 }
 
 function sanitizeUrl(value) {
 if (!value) return null;
 
-```
+ 
 let candidate =
     String(value).trim();
 
@@ -2105,14 +2103,14 @@ try {
 } catch (_) {
     return null;
 }
-```
+ 
 
 }
 
 async function resolveMediaUrl(path) {
 if (!path) return null;
 
-```
+ 
 if (
     path.startsWith("http://") ||
     path.startsWith("https://")
@@ -2141,14 +2139,14 @@ if (error) {
 }
 
 return data?.signedUrl || null;
-```
+ 
 
 }
 
 async function hydrateMediaMessages() {
 if (!dom.messages) return;
 
-```
+ 
 const images =
     dom.messages.querySelectorAll(
         "img[data-media-path]"
@@ -2185,14 +2183,14 @@ for (const video of videos) {
         video.src = url;
     }
 }
-```
+ 
 
 }
 
 async function sendTextMessage() {
 if (!state.user || !state.selectedUser) return;
 
-```
+ 
 const text =
     dom.input?.value.trim() || "";
 
@@ -2254,7 +2252,7 @@ try {
 } finally {
     state.sendingMessage = false;
 }
-```
+ 
 
 }
 
@@ -2284,7 +2282,7 @@ filename.toLowerCase().match(
 /.([a-z0-9]+)$/
 );
 
-```
+ 
 if (!match) return "";
 
 const extension =
@@ -2304,7 +2302,7 @@ const allowed = [
 return allowed.includes(extension)
     ? extension
     : "";
-```
+ 
 
 }
 
@@ -2316,7 +2314,7 @@ message: "No image selected."
 };
 }
 
-```
+ 
 if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
     return {
         valid: false,
@@ -2334,7 +2332,7 @@ if (file.size > MAX_IMAGE_SIZE) {
 return {
     valid: true
 };
-```
+ 
 
 }
 
@@ -2346,7 +2344,7 @@ message: "No video selected."
 };
 }
 
-```
+ 
 if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
     return {
         valid: false,
@@ -2364,7 +2362,7 @@ if (file.size > MAX_VIDEO_SIZE) {
 return {
     valid: true
 };
-```
+ 
 
 }
 
@@ -2376,7 +2374,7 @@ showError(
 return false;
 }
 
-```
+ 
 if (
     !isFriend(
         state.selectedUser.id
@@ -2400,14 +2398,14 @@ if (
 }
 
 return true;
-```
+ 
 
 }
 
 async function uploadChatMedia(file, type) {
 if (!state.user || !state.selectedUser) return;
 
-```
+ 
 if (!(await canShareMedia())) {
     return;
 }
@@ -2508,14 +2506,14 @@ try {
 } finally {
     state.uploadingMedia = false;
 }
-```
+ 
 
 }
 
 async function sendLinkMessage() {
 if (!state.user || !state.selectedUser) return;
 
-```
+ 
 const input =
     window.prompt(
         "Paste a link to send:"
@@ -2573,7 +2571,7 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
@@ -2585,7 +2583,7 @@ async function hashPIN(pin) {
 const encoder =
 new TextEncoder();
 
-```
+ 
 const data =
     encoder.encode(pin);
 
@@ -2603,14 +2601,14 @@ return Array.from(
             byte.toString(16).padStart(2, "0")
     )
     .join("");
-```
+ 
 
 }
 
 async function setupPrivateChatPin() {
 if (!state.user || !dom.privateChatPin) return;
 
-```
+ 
 const pin =
     dom.privateChatPin.value.trim();
 
@@ -2666,14 +2664,14 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
 async function unlockPrivateChat() {
 if (!state.user || !dom.privateChatPin) return;
 
-```
+ 
 const pin =
     dom.privateChatPin.value.trim();
 
@@ -2738,7 +2736,7 @@ try {
         error
     );
 }
-```
+ 
 
 }
 
@@ -2750,7 +2748,7 @@ dom.privateChatDialog
 return;
 }
 
-```
+ 
 /*
  * The actual private-chat data should be loaded
  * only through RLS-protected private tables.
@@ -2767,7 +2765,7 @@ if (dom.privateChatStatus) {
     dom.privateChatStatus.textContent =
         "Unlocked for this session.";
 }
-```
+ 
 
 }
 
@@ -2778,7 +2776,7 @@ BLOCKED USERS UI
 async function renderBlockedUsers() {
 if (!dom.blockedList) return;
 
-```
+ 
 if (!state.blockedUsers.length) {
     dom.blockedList.innerHTML = `
         <div class="empty-blocked">
@@ -2858,7 +2856,7 @@ dom.blockedList.innerHTML =
             </div>
         `;
     }).join("");
-```
+ 
 
 }
 
@@ -2873,7 +2871,7 @@ dom.chatName.textContent =
 "Select a person";
 }
 
-```
+ 
     if (dom.status) {
         dom.status.textContent = "";
     }
@@ -2903,7 +2901,7 @@ if (dom.status) {
 
 renderFriendButton();
 renderBlockButton();
-```
+ 
 
 }
 
@@ -2917,7 +2915,7 @@ state.users.find(
 item => item.id === userId
 );
 
-```
+ 
 if (!user || !dom.profileContent) return;
 
 dom.profileContent.innerHTML = `
@@ -2951,7 +2949,7 @@ dom.profileContent.innerHTML = `
 openDialog(
     dom.profileDialog
 );
-```
+ 
 
 }
 
@@ -2968,7 +2966,7 @@ const validFilters = [
 "friends"
 ];
 
-```
+ 
 if (!validFilters.includes(filter)) {
     filter = "all";
 }
@@ -2994,7 +2992,7 @@ document
     });
 
 renderUsers();
-```
+ 
 
 }
 
@@ -3005,7 +3003,7 @@ SETTINGS UI
 function openSettings() {
 renderOwnProfile();
 
-```
+ 
 if (dom.privateChatStatus) {
     dom.privateChatStatus.textContent =
         state.privateUnlocked
@@ -3016,7 +3014,7 @@ if (dom.privateChatStatus) {
 openDialog(
     dom.settings
 );
-```
+ 
 
 }
 
@@ -3033,7 +3031,7 @@ REALTIME
 async function removeMessageChannel() {
 if (!state.channels.messages) return;
 
-```
+ 
 try {
     await supabaseClient.removeChannel(
         state.channels.messages
@@ -3046,14 +3044,14 @@ try {
 }
 
 state.channels.messages = null;
-```
+ 
 
 }
 
 async function startMessageRealtime() {
 if (!state.user) return;
 
-```
+ 
 await removeMessageChannel();
 
 const channelName =
@@ -3188,7 +3186,7 @@ if (status === "SUBSCRIBED") {
         status
     );
 }
-```
+ 
 
 }
 
@@ -3199,7 +3197,7 @@ UNREAD
 async function loadUnreadCounts() {
 if (!state.user) return;
 
-```
+ 
 /*
  * We calculate unread counts from message timestamps
  * only when a read-state table exists.
@@ -3214,7 +3212,7 @@ if (!state.user) return;
 
 state.unreadCounts = {};
 renderUsers();
-```
+ 
 
 }
 
@@ -3228,7 +3226,7 @@ dom.settingsBtn?.addEventListener(
 openSettings
 );
 
-```
+ 
 dom.closeSettings?.addEventListener(
     "click",
     closeSettingsDialog
@@ -3599,7 +3597,7 @@ window.addEventListener(
         );
     }
 );
-```
+ 
 
 }
 
@@ -3616,7 +3614,7 @@ event.target.closest(
 "[data-chat-back]"
 );
 
-```
+ 
         if (!backButton) return;
 
         document.body.classList.remove(
@@ -3641,7 +3639,7 @@ event.target.closest(
  *     min-height: 0;
  * }
  */
-```
+ 
 
 }
 
@@ -3735,7 +3733,7 @@ async function init() {
         error
     );
 }
-```
+ 
 
 }
 
