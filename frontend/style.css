@@ -1224,3 +1224,51 @@ body {
   }
 
 }
+/* =========================================================
+   Q1 CHAT - FIX MESSAGE SCROLL
+   ========================================================= */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  min-height: 100vh;
+}
+
+/* Main app must stay inside viewport */
+#app,
+.app,
+.chat-app,
+.container {
+  min-height: 0;
+}
+
+/* Chat layout */
+.chat,
+.chat-panel,
+.chat-main,
+.chat-window {
+  min-height: 0;
+}
+
+/* ONLY messages should scroll */
+#messages,
+.messages {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keep message input area fixed */
+.chat-input,
+.message-input,
+.composer {
+  flex-shrink: 0;
+}
