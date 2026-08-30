@@ -1,641 +1,1291 @@
-const SUPABASE_URL = "https://ubkvpmwpvmozhbwlxhmx.supabase.co";
+/* =========================================================
+   Q1 CHAT — APP.JS
+   Supabase + Local UI + Safety Filters
+   ========================================================= */
+
+
+/* =========================
+   SUPABASE CONFIG
+   ========================= */
+
+const SUPABASE_URL =
+  "https://ubkvpmwpvmozhbwlxhmx.supabase.co";
+
 const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
+
 const BACKEND_URL = "";
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY
-);
 
-// --------------------------------------------------
-// Q1 CHAT STATE
-// --------------------------------------------------
+/* =========================
+   SUPABASE CLIENT
+   ========================= */
+
+const supabaseClient =
+  window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
+
+
+/* =========================
+   DEMO USERS
+   ========================= */
+
+const users = [
+  {
+    id: "rahul",
+    name: "Rahul",
+    gender: "boy",
+    online: true,
+    friends: true,
+    unread: 2,
+    last: "Hey! How are you?"
+  },
+
+  {
+    id: "priya",
+    name: "Priya",
+    gender: "girl",
+    online: true,
+    friends: true,
+    unread: 0,
+    last: "See you later 👋"
+  },
+
+  {
+    id: "aman",
+    name: "Aman",
+    gender: "boy",
+    online: false,
+    friends: false,
+    unread: 1,
+    last: "That project looks cool."
+  },
+
+  {
+    id: "neha",
+    name: "Neha",
+    gender: "girl",
+    online: true,
+    friends: true,
+    unread: 0,
+    last: "Thanks!"
+  }
+];
+
+
+/* =========================
+   STATE
+   ========================= */
 
 const state = {
+
   filter: "online",
+
   selected: null,
-  currentUser: null,
-  profiles: [],
-  blocked: [],
-  messages: {},
-  settings: {
-    name: "You",
-    gender: "boy",
-    age: "13-17"
-  }
+
+  blocked: JSON.parse(
+    localStorage.getItem("q1blocked") || "[]"
+  ),
+
+  messages: JSON.parse(
+    localStorage.getItem("q1messages") || "{}"
+  ),
+
+  settings: JSON.parse(
+    localStorage.getItem("q1settings") ||
+    '{"name":"You","gender":"boy","age":"13-17"}'
+  ),
+
+  currentUser: null
+
 };
 
-const $ = (x) => document.querySelector(x);
 
-// --------------------------------------------------
-// SAFETY
-// --------------------------------------------------
+/* =========================
+   SHORTCUTS
+   ========================= */
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>'"]/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;"
-  }[c]));
+const $ = selector =>
+  document.querySelector(selector);
+
+
+const getUser = id =>
+  users.find(user => user.id === id);
+
+
+/* =========================
+   LOCAL SAVE
+   ========================= */
+
+function saveLocal() {
+
+  localStorage.setItem(
+    "q1blocked",
+    JSON.stringify(state.blocked)
+  );
+
+  localStorage.setItem(
+    "q1messages",
+    JSON.stringify(state.messages)
+  );
+
+  localStorage.setItem(
+    "q1settings",
+    JSON.stringify(state.settings)
+  );
+
 }
 
-function blockedText(t) {
-  return /https?:\/\/\S+|www\.\S+|\b(instagram|snapchat|onlyfans|telegram|discord)\b|\b(dm me|link in bio|follow me|add me)\b/i.test(t);
-}
 
-// --------------------------------------------------
-// AUTH
-// --------------------------------------------------
+/* =========================
+   ANONYMOUS AUTH
+   ========================= */
 
-async function initAuth() {
-  const {
-    data: { session }
-  } = await supabaseClient.auth.getSession();
+async function ensureAnonymousUser() {
 
-  if (session?.user) {
-    state.currentUser = session.user;
-  } else {
-    const { data, error } =
+  try {
+
+    const {
+      data: sessionData
+    } = await supabaseClient.auth.getSession();
+
+
+    if (sessionData?.session?.user) {
+
+      state.currentUser =
+        sessionData.session.user;
+
+      return state.currentUser;
+
+    }
+
+
+    /*
+      Anonymous sign-in must be enabled
+      in Supabase Authentication settings.
+    */
+
+    const {
+      data,
+      error
+    } =
       await supabaseClient.auth.signInAnonymously();
 
+
     if (error) {
-      console.error("Anonymous sign-in error:", error);
-      alert("Q1 Chat login failed. Please try again.");
-      return false;
+
+      console.warn(
+        "Anonymous sign-in unavailable:",
+        error.message
+      );
+
+      return null;
+
     }
+
 
     state.currentUser = data.user;
+
+    return data.user;
+
   }
 
-  return true;
-}
+  catch (error) {
 
-// --------------------------------------------------
-// PROFILE
-// --------------------------------------------------
-
-async function loadMyProfile() {
-  if (!state.currentUser) return;
-
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("*")
-    .eq("id", state.currentUser.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Profile load error:", error);
-    return;
-  }
-
-  if (data) {
-    state.settings.name = data.display_name || "You";
-    state.settings.gender = data.gender || "boy";
-  } else {
-    const username =
-      "user_" + state.currentUser.id.replace(/-/g, "").slice(0, 10);
-
-    const { error: insertError } = await supabaseClient
-      .from("profiles")
-      .insert({
-        id: state.currentUser.id,
-        username,
-        display_name: "You",
-        gender: "boy"
-      });
-
-    if (insertError) {
-      console.error("Profile create error:", insertError);
-    }
-  }
-}
-
-// --------------------------------------------------
-// LOAD USERS
-// --------------------------------------------------
-
-async function loadUsers() {
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("*")
-    .neq("id", state.currentUser.id)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("Users load error:", error);
-    return;
-  }
-
-  state.profiles = data || [];
-
-  await loadBlockedUsers();
-  renderUsers();
-}
-
-// --------------------------------------------------
-// BLOCKED USERS
-// --------------------------------------------------
-
-async function loadBlockedUsers() {
-  const { data, error } = await supabaseClient
-    .from("blocks")
-    .select("blocked_id")
-    .eq("blocker_id", state.currentUser.id);
-
-  if (error) {
-    console.error("Blocked users error:", error);
-    return;
-  }
-
-  state.blocked = (data || []).map((x) => x.blocked_id);
-}
-
-// --------------------------------------------------
-// USER HELPERS
-// --------------------------------------------------
-
-function getUser(id) {
-  return state.profiles.find((x) => x.id === id);
-}
-
-// --------------------------------------------------
-// RENDER USERS
-// --------------------------------------------------
-
-function renderUsers() {
-  const search = $("#search");
-  const container = $("#users");
-
-  if (!search || !container) return;
-
-  const q = search.value.toLowerCase();
-
-  let users = state.profiles
-    .filter((user) => !state.blocked.includes(user.id))
-    .filter((user) =>
-      (user.display_name || "")
-        .toLowerCase()
-        .includes(q)
+    console.warn(
+      "Supabase authentication error:",
+      error
     );
 
-  container.innerHTML =
-    users.map((user) => {
-      const name = user.display_name || "User";
-      const gender = user.gender || "other";
+    return null;
 
-      return `
-        <button
-          class="user ${state.selected === user.id ? "selected" : ""}"
-          onclick="selectUser('${user.id}')"
-        >
-          <span class="avatar ${escapeHtml(gender)}">
-            ${escapeHtml(name.charAt(0).toUpperCase())}
-          </span>
+  }
 
-          <span class="info">
-            <b>${escapeHtml(name)}</b>
-            <span class="preview">Start a conversation</span>
-          </span>
-        </button>
-      `;
-    }).join("") ||
-    '<p style="padding:15px;color:#777">No users found.</p>';
 }
 
-// --------------------------------------------------
-// SELECT USER
-// --------------------------------------------------
+
+/* =========================
+   PROFILE SYNC
+   ========================= */
+
+async function saveProfileToSupabase() {
+
+  if (!state.currentUser) {
+    return;
+  }
+
+
+  try {
+
+    const profile = {
+
+      id: state.currentUser.id,
+
+      display_name:
+        state.settings.name,
+
+      gender:
+        state.settings.gender,
+
+      age_group:
+        state.settings.age
+
+    };
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("profiles")
+      .upsert(
+        profile,
+        {
+          onConflict: "id"
+        }
+      );
+
+
+    if (error) {
+
+      console.warn(
+        "Profile save skipped:",
+        error.message
+      );
+
+    }
+
+  }
+
+  catch (error) {
+
+    console.warn(
+      "Profile sync error:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================
+   LOAD PROFILE
+   ========================= */
+
+async function loadProfileFromSupabase() {
+
+  if (!state.currentUser) {
+    return;
+  }
+
+
+  try {
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("profiles")
+      .select("*")
+      .eq("id", state.currentUser.id)
+      .maybeSingle();
+
+
+    if (error) {
+
+      console.warn(
+        "Profile load skipped:",
+        error.message
+      );
+
+      return;
+
+    }
+
+
+    if (!data) {
+      return;
+    }
+
+
+    if (data.display_name) {
+
+      state.settings.name =
+        data.display_name;
+
+    }
+
+
+    if (data.gender) {
+
+      state.settings.gender =
+        data.gender;
+
+    }
+
+
+    if (data.age_group) {
+
+      state.settings.age =
+        data.age_group;
+
+    }
+
+
+    saveLocal();
+
+  }
+
+  catch (error) {
+
+    console.warn(
+      "Profile load error:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================
+   RENDER USERS
+   ========================= */
+
+function renderUsers() {
+
+  const search =
+    $("#search");
+
+  const usersBox =
+    $("#users");
+
+
+  if (!search || !usersBox) {
+    return;
+  }
+
+
+  const query =
+    search.value
+      .trim()
+      .toLowerCase();
+
+
+  let list =
+    users
+      .filter(user =>
+        !state.blocked.includes(user.id)
+      )
+      .filter(user =>
+        user.name
+          .toLowerCase()
+          .includes(query)
+      );
+
+
+  if (state.filter === "online") {
+
+    list =
+      list.filter(user =>
+        user.online
+      );
+
+  }
+
+
+  else if (state.filter === "unread") {
+
+    list =
+      list.filter(user =>
+        user.unread > 0
+      );
+
+  }
+
+
+  else if (state.filter === "friends") {
+
+    list =
+      list.filter(user =>
+        user.friends
+      );
+
+  }
+
+
+  else if (state.filter === "recent") {
+
+    list =
+      list.filter(user =>
+        user.last
+      );
+
+  }
+
+
+  usersBox.innerHTML =
+    list.map(user => `
+
+      <button
+        class="user ${state.selected === user.id ? "selected" : ""}"
+        type="button"
+        onclick="selectUser('${user.id}')"
+      >
+
+        <span
+          class="avatar ${user.gender}"
+        >
+          ${escapeHtml(user.name.charAt(0))}
+        </span>
+
+
+        <span class="info">
+
+          <b>
+
+            ${escapeHtml(user.name)}
+
+            <i
+              class="dot ${user.online ? "on" : ""}"
+            ></i>
+
+          </b>
+
+
+          <span class="preview">
+            ${escapeHtml(user.last || "")}
+          </span>
+
+        </span>
+
+
+        ${
+          user.unread
+            ? `<small>${user.unread}</small>`
+            : ""
+        }
+
+      </button>
+
+    `).join("");
+
+
+  if (!list.length) {
+
+    usersBox.innerHTML =
+      '<p style="padding:15px;color:#777">No users found.</p>';
+
+  }
+
+}
+
+
+/* =========================
+   SELECT USER
+   ========================= */
 
 async function selectUser(id) {
-  const user = getUser(id);
 
-  if (!user) return;
+  const user =
+    getUser(id);
 
-  state.selected = id;
+
+  if (!user) {
+    return;
+  }
+
+
+  if (state.blocked.includes(id)) {
+    return;
+  }
+
+
+  state.selected =
+    id;
+
+
+  user.unread =
+    0;
+
+
+  if (!state.messages[id]) {
+
+    state.messages[id] = [
+
+      {
+        me: false,
+
+        text:
+          `Hi! I'm ${user.name}. 👋`,
+
+        time:
+          ""
+      }
+
+    ];
+
+  }
+
+
+  saveLocal();
+
 
   $("#chatName").textContent =
-    user.display_name || "User";
+    user.name;
 
-  $("#status").innerHTML =
-    '<span class="dot on"></span> Q1 Chat user';
 
-  $("#input").disabled = false;
-  $("#send").disabled = false;
+  $("#status").innerHTML = `
+
+    <span
+      class="dot ${user.online ? "on" : ""}"
+    ></span>
+
+    ${user.online ? "Online" : "Offline"}
+
+  `;
+
+
+  $("#input").disabled =
+    false;
+
+  $("#send").disabled =
+    false;
+
 
   renderUsers();
 
-  await loadMessages(id);
-}
-
-// --------------------------------------------------
-// LOAD MESSAGES
-// --------------------------------------------------
-
-async function loadMessages(otherUserId) {
-  const { data, error } = await supabaseClient
-    .from("messages")
-    .select("*")
-    .or(
-      `and(sender_id.eq.${state.currentUser.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${state.currentUser.id})`
-    )
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("Messages load error:", error);
-    return;
-  }
-
-  state.messages[otherUserId] = (data || []).map((message) => ({
-    me: message.sender_id === state.currentUser.id,
-    text: message.text,
-    time: message.created_at
-      ? new Date(message.created_at).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        })
-      : ""
-  }));
-
   renderMessages();
+
+
+  await loadMessagesFromSupabase(id);
+
 }
 
-// --------------------------------------------------
-// RENDER MESSAGES
-// --------------------------------------------------
+
+/* =========================
+   RENDER MESSAGES
+   ========================= */
 
 function renderMessages() {
-  const box = $("#messages");
+
+  const box =
+    $("#messages");
+
+
+  if (!box) {
+    return;
+  }
+
 
   if (!state.selected) {
+
     box.innerHTML = `
+
       <div class="welcome">
+
         💬
-        <h2>Welcome to Q1 Chat</h2>
-        <p>Select a person to start a conversation.</p>
+
+        <h2>
+          Welcome to Q1 Chat
+        </h2>
+
+        <p>
+          Select a person to start a conversation.
+        </p>
+
       </div>
+
     `;
+
     return;
+
   }
 
-  const messages =
+
+  const list =
     state.messages[state.selected] || [];
 
-  if (!messages.length) {
-    box.innerHTML = `
-      <div class="welcome">
-        👋
-        <h2>Start chatting</h2>
-        <p>Send the first message.</p>
+
+  box.innerHTML =
+    list.map(message => `
+
+      <div
+        class="msg ${message.me ? "me" : ""}"
+      >
+
+        ${escapeHtml(message.text)}
+
+        <div class="meta">
+          ${escapeHtml(message.time || "")}
+        </div>
+
       </div>
-    `;
+
+    `).join("");
+
+
+  box.scrollTop =
+    box.scrollHeight;
+
+}
+
+
+/* =========================
+   LOAD MESSAGES
+   ========================= */
+
+async function loadMessagesFromSupabase(userId) {
+
+  if (!state.currentUser) {
     return;
   }
 
-  box.innerHTML = messages
-    .map(
-      (m) => `
-        <div class="msg ${m.me ? "me" : ""}">
-          ${escapeHtml(m.text)}
-          <div class="meta">${escapeHtml(m.time || "")}</div>
-        </div>
-      `
-    )
-    .join("");
 
-  box.scrollTop = box.scrollHeight;
+  try {
+
+    /*
+      This query assumes your messages table
+      contains:
+
+      sender_id
+      receiver_id
+      content
+      created_at
+    */
+
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("messages")
+      .select("*")
+      .or(
+        `and(sender_id.eq.${state.currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${state.currentUser.id})`
+      )
+      .order(
+        "created_at",
+        {
+          ascending: true
+        }
+      );
+
+
+    if (error) {
+
+      console.warn(
+        "Messages could not be loaded:",
+        error.message
+      );
+
+      return;
+
+    }
+
+
+    if (!data || !data.length) {
+      return;
+    }
+
+
+    state.messages[userId] =
+      data.map(row => ({
+
+        me:
+          row.sender_id ===
+          state.currentUser.id,
+
+        text:
+          row.content || "",
+
+        time:
+          row.created_at
+            ? new Date(row.created_at)
+                .toLocaleTimeString(
+                  [],
+                  {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  }
+                )
+            : ""
+
+      }));
+
+
+    saveLocal();
+
+    renderMessages();
+
+  }
+
+  catch (error) {
+
+    console.warn(
+      "Message loading error:",
+      error
+    );
+
+  }
+
 }
 
-// --------------------------------------------------
-// SEND MESSAGE
-// --------------------------------------------------
+
+/* =========================
+   SEND MESSAGE
+   ========================= */
 
 async function sendMessage() {
-  const input = $("#input");
 
-  const text = input.value.trim();
+  const input =
+    $("#input");
 
-  if (!text || !state.selected) return;
+
+  const text =
+    input.value.trim();
+
+
+  if (!text || !state.selected) {
+    return;
+  }
+
+
+  /*
+    Safety filter
+  */
 
   if (blockedText(text)) {
+
     alert(
       "This message was blocked by Q1 Chat safety filters."
     );
+
     return;
+
   }
 
-  const { data, error } = await supabaseClient
-    .from("messages")
-    .insert({
-      sender_id: state.currentUser.id,
-      receiver_id: state.selected,
-      text
-    })
-    .select()
-    .single();
 
-  if (error) {
-    console.error("Send message error:", error);
-    alert("Message could not be sent.");
-    return;
-  }
+  const now =
+    new Date();
+
+
+  const time =
+    now.toLocaleTimeString(
+      [],
+      {
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
+
+
+  /*
+    Show immediately in UI
+  */
 
   if (!state.messages[state.selected]) {
-    state.messages[state.selected] = [];
+
+    state.messages[state.selected] =
+      [];
+
   }
 
+
   state.messages[state.selected].push({
+
     me: true,
-    text: data.text,
-    time: new Date(data.created_at).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    })
+
+    text: text,
+
+    time: time
+
   });
+
 
   input.value = "";
 
+
+  saveLocal();
+
   renderMessages();
-}
 
-$("#send").onclick = sendMessage;
 
-$("#input").onkeydown = (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-};
+  /*
+    Save to Supabase
+  */
 
-// --------------------------------------------------
-// REALTIME MESSAGES
-// --------------------------------------------------
-
-function startRealtime() {
-  supabaseClient
-    .channel("q1-chat-messages")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages"
-      },
-      async (payload) => {
-        const message = payload.new;
-
-        const belongsToCurrentUser =
-          message.sender_id === state.currentUser.id ||
-          message.receiver_id === state.currentUser.id;
-
-        if (!belongsToCurrentUser) return;
-
-        const otherUserId =
-          message.sender_id === state.currentUser.id
-            ? message.receiver_id
-            : message.sender_id;
-
-        if (!state.messages[otherUserId]) {
-          state.messages[otherUserId] = [];
-        }
-
-        const alreadyExists =
-          state.messages[otherUserId].some(
-            (m) =>
-              m.text === message.text &&
-              m.time ===
-                new Date(message.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit"
-                })
-          );
-
-        if (!alreadyExists) {
-          state.messages[otherUserId].push({
-            me:
-              message.sender_id ===
-              state.currentUser.id,
-            text: message.text,
-            time: new Date(
-              message.created_at
-            ).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit"
-            })
-          });
-        }
-
-        if (state.selected === otherUserId) {
-          renderMessages();
-        }
-      }
-    )
-    .subscribe();
-}
-
-// --------------------------------------------------
-// BLOCK USER
-// --------------------------------------------------
-
-$("#block").onclick = async () => {
-  if (!state.selected) return;
-
-  const id = state.selected;
-  const user = getUser(id);
-
-  if (!user) return;
-
-  const name = user.display_name || "this user";
-
-  if (!confirm(`Block ${name}?`)) return;
-
-  const { error } = await supabaseClient
-    .from("blocks")
-    .insert({
-      blocker_id: state.currentUser.id,
-      blocked_id: id
-    });
-
-  if (error) {
-    console.error("Block error:", error);
-    alert("Could not block this user.");
-    return;
-  }
-
-  state.blocked.push(id);
-  state.selected = null;
-
-  $("#input").disabled = true;
-  $("#send").disabled = true;
-
-  $("#chatName").textContent = "Select a person";
-  $("#status").textContent = "Choose a chat";
-
-  renderUsers();
-  renderMessages();
-};
-
-// --------------------------------------------------
-// REPORT
-// --------------------------------------------------
-
-$("#report").onclick = () => {
-  if (!state.selected) return;
-
-  alert(
-    "Report submitted for moderation. Thank you for helping keep Q1 Chat safe."
+  await saveMessageToSupabase(
+    state.selected,
+    text
   );
-};
 
-// --------------------------------------------------
-// SETTINGS
-// --------------------------------------------------
-
-$("#settingsBtn").onclick = () => {
-  $("#displayName").value =
-    state.settings.name || "You";
-
-  $("#gender").value =
-    state.settings.gender || "boy";
-
-  $("#age").value =
-    state.settings.age || "13-17";
-
-  settings.showModal();
-};
-
-$("#save").onclick = async () => {
-  const name =
-    $("#displayName").value.trim() || "You";
-
-  const gender = $("#gender").value;
-
-  state.settings.name = name;
-  state.settings.gender = gender;
-
-  const { error } = await supabaseClient
-    .from("profiles")
-    .update({
-      display_name: name,
-      gender
-    })
-    .eq("id", state.currentUser.id);
-
-  if (error) {
-    console.error("Settings save error:", error);
-    alert("Settings could not be saved.");
-    return;
-  }
-
-  settings.close();
-
-  await loadUsers();
-};
-
-// --------------------------------------------------
-// BLOCKED USERS DIALOG
-// --------------------------------------------------
-
-$("#blocked").onclick = async () => {
-  const list = $("#blockedList");
-
-  await loadBlockedUsers();
-
-  list.innerHTML =
-    state.blocked.map((id) => {
-      const user = getUser(id);
-
-      if (!user) return "";
-
-      return `
-        <div class="blockedrow">
-          <span>
-            ${escapeHtml(user.display_name || "User")}
-          </span>
-
-          <button onclick="unblockUser('${id}')">
-            Unblock
-          </button>
-        </div>
-      `;
-    }).join("") ||
-    "<p>No blocked users.</p>";
-
-  blockedDialog.showModal();
-};
-
-async function unblockUser(id) {
-  const { error } = await supabaseClient
-    .from("blocks")
-    .delete()
-    .eq("blocker_id", state.currentUser.id)
-    .eq("blocked_id", id);
-
-  if (error) {
-    console.error("Unblock error:", error);
-    alert("Could not unblock this user.");
-    return;
-  }
-
-  state.blocked =
-    state.blocked.filter((x) => x !== id);
-
-  blockedDialog.close();
-
-  await loadUsers();
 }
 
-// --------------------------------------------------
-// SEARCH
-// --------------------------------------------------
 
-$("#search").oninput = renderUsers;
+/* =========================
+   SAVE MESSAGE
+   ========================= */
 
-// --------------------------------------------------
-// FILTER NAVIGATION
-// --------------------------------------------------
+async function saveMessageToSupabase(
+  receiverId,
+  text
+) {
+
+  if (!state.currentUser) {
+    return;
+  }
+
+
+  try {
+
+    const {
+      error
+    } = await supabaseClient
+      .from("messages")
+      .insert({
+
+        sender_id:
+          state.currentUser.id,
+
+        receiver_id:
+          receiverId,
+
+        content:
+          text
+
+      });
+
+
+    if (error) {
+
+      console.warn(
+        "Message was not saved to Supabase:",
+        error.message
+      );
+
+    }
+
+  }
+
+  catch (error) {
+
+    console.warn(
+      "Message save error:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================
+   HTML ESCAPE
+   ========================= */
+
+function escapeHtml(value) {
+
+  return String(value)
+    .replace(
+      /[&<>'"]/g,
+      character => ({
+
+        "&": "&amp;",
+
+        "<": "&lt;",
+
+        ">": "&gt;",
+
+        "'": "&#39;",
+
+        '"': "&quot;"
+
+      })[character]
+    );
+
+}
+
+
+/* =========================
+   SAFETY FILTER
+   ========================= */
+
+function blockedText(text) {
+
+  return (
+
+    /https?:\/\/\S+/i.test(text) ||
+
+    /www\.\S+/i.test(text) ||
+
+    /\b(instagram|snapchat|onlyfans|telegram|discord)\b/i
+      .test(text) ||
+
+    /\b(dm me|link in bio|follow me|add me)\b/i
+      .test(text)
+
+  );
+
+}
+
+
+/* =========================
+   SEND BUTTON
+   ========================= */
+
+$("#send").onclick =
+  sendMessage;
+
+
+/* =========================
+   ENTER TO SEND
+   ========================= */
+
+$("#input").onkeydown =
+  event => {
+
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+
+      event.preventDefault();
+
+      sendMessage();
+
+    }
+
+  };
+
+
+/* =========================
+   NAV FILTERS
+   ========================= */
 
 document
   .querySelectorAll("nav button")
-  .forEach((button) => {
+  .forEach(button => {
+
     button.onclick = () => {
+
       document
         .querySelectorAll("nav button")
-        .forEach((x) =>
-          x.classList.remove("active")
+        .forEach(item =>
+          item.classList.remove("active")
         );
 
+
       button.classList.add("active");
+
 
       state.filter =
         button.dataset.filter;
 
+
       renderUsers();
+
     };
+
   });
 
-// --------------------------------------------------
-// START Q1 CHAT
-// --------------------------------------------------
 
-async function startQ1Chat() {
-  const authenticated = await initAuth();
+/* =========================
+   SEARCH
+   ========================= */
 
-  if (!authenticated) return;
+$("#search").oninput =
+  renderUsers;
 
-  await loadMyProfile();
-  await loadUsers();
 
-  startRealtime();
+/* =========================
+   SETTINGS
+   ========================= */
+
+$("#settingsBtn").onclick =
+  () => {
+
+    $("#displayName").value =
+      state.settings.name;
+
+    $("#gender").value =
+      state.settings.gender;
+
+    $("#age").value =
+      state.settings.age;
+
+
+    $("#settings").showModal();
+
+  };
+
+
+/* =========================
+   SAVE SETTINGS
+   ========================= */
+
+$("#save").onclick =
+  async () => {
+
+    state.settings = {
+
+      name:
+        $("#displayName").value.trim()
+        || "You",
+
+      gender:
+        $("#gender").value,
+
+      age:
+        $("#age").value
+
+    };
+
+
+    saveLocal();
+
+    await saveProfileToSupabase();
+
+
+    $("#settings").close();
+
+  };
+
+
+/* =========================
+   BLOCKED USERS
+   ========================= */
+
+$("#blocked").onclick =
+  () => {
+
+    const list =
+      $("#blockedList");
+
+
+    list.innerHTML =
+      state.blocked
+        .map(id => {
+
+          const user =
+            getUser(id);
+
+
+          if (!user) {
+            return "";
+          }
+
+
+          return `
+
+            <div class="blockedrow">
+
+              <span>
+                ${escapeHtml(user.name)}
+              </span>
+
+              <button
+                type="button"
+                onclick="unblock('${id}')"
+              >
+                Unblock
+              </button>
+
+            </div>
+
+          `;
+
+        })
+        .join("");
+
+
+    if (!list.innerHTML) {
+
+      list.innerHTML =
+        "<p>No blocked users.</p>";
+
+    }
+
+
+    $("#blockedDialog").showModal();
+
+  };
+
+
+/* =========================
+   UNBLOCK
+   ========================= */
+
+function unblock(id) {
+
+  state.blocked =
+    state.blocked.filter(
+      item => item !== id
+    );
+
+
+  saveLocal();
+
+  renderUsers();
+
+
+  const dialog =
+    $("#blockedDialog");
+
+
+  if (dialog.open) {
+    dialog.close();
+  }
+
+}
+
+
+/* =========================
+   BLOCK CURRENT USER
+   ========================= */
+
+$("#block").onclick =
+  () => {
+
+    if (!state.selected) {
+      return;
+    }
+
+
+    const user =
+      getUser(state.selected);
+
+
+    if (!user) {
+      return;
+    }
+
+
+    if (
+      confirm(
+        `Block ${user.name}?`
+      )
+    ) {
+
+      if (
+        !state.blocked.includes(
+          user.id
+        )
+      ) {
+
+        state.blocked.push(
+          user.id
+        );
+
+      }
+
+
+      state.selected =
+        null;
+
+
+      $("#input").disabled =
+        true;
+
+      $("#send").disabled =
+        true;
+
+
+      $("#chatName").textContent =
+        "Select a person";
+
+
+      $("#status").textContent =
+        "Choose a chat";
+
+
+      saveLocal();
+
+      renderUsers();
+
+      renderMessages();
+
+    }
+
+  };
+
+
+/* =========================
+   REPORT
+   ========================= */
+
+$("#report").onclick =
+  () => {
+
+    if (!state.selected) {
+
+      alert(
+        "Select a person first."
+      );
+
+      return;
+
+    }
+
+
+    alert(
+      "Report submitted for moderation."
+    );
+
+  };
+
+
+/* =========================
+   AUTH STATE LISTENER
+   ========================= */
+
+supabaseClient.auth.onAuthStateChange(
+  (_event, session) => {
+
+    if (session?.user) {
+
+      state.currentUser =
+        session.user;
+
+    }
+
+  }
+);
+
+
+/* =========================
+   INITIALIZE APP
+   ========================= */
+
+async function initQ1Chat() {
+
+  saveLocal();
+
+  renderUsers();
 
   renderMessages();
 
-  console.log(
-    "Q1 Chat connected to Supabase successfully."
-  );
+
+  const user =
+    await ensureAnonymousUser();
+
+
+  if (user) {
+
+    await loadProfileFromSupabase();
+
+    saveLocal();
+
+  }
+
 }
 
-startQ1Chat();
+
+/* =========================
+   START
+   ========================= */
+
+initQ1Chat();
 ```
