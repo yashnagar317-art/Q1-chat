@@ -1,34 +1,110 @@
 /* =========================================================
-   Q1 CHAT — app.js
-   Supabase Anonymous Auth + Profiles + Messages + Blocks
+   Q1 CHAT
+   app.js
+   Matches the supplied index.html + Supabase database
    ========================================================= */
 
-const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY";
+
+/* =========================================================
+   1. SUPABASE CONFIG
+   ========================================================= */
+
+const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
+
+const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE";
+
+
+/* =========================================================
+   2. CREATE SUPABASE CLIENT
+   ========================================================= */
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  SUPABASE_KEY
 );
 
 
 /* =========================================================
-   GLOBAL STATE
+   3. GLOBAL STATE
    ========================================================= */
 
 let currentUser = null;
 let currentProfile = null;
 let selectedUser = null;
-let messageSubscription = null;
+
+let allUsers = [];
+
+let messageChannel = null;
 
 
 /* =========================================================
-   DOM HELPERS
+   4. DOM ELEMENTS
    ========================================================= */
 
-const $ = (selector) => document.querySelector(selector);
+const authStatus = document.getElementById("authStatus");
+
+const usersContainer = document.getElementById("users");
+
+const userCount = document.getElementById("userCount");
+
+const searchInput = document.getElementById("search");
+
+const chatAvatar = document.getElementById("chatAvatar");
+
+const chatName = document.getElementById("chatName");
+
+const chatStatus = document.getElementById("status");
+
+const messagesContainer = document.getElementById("messages");
+
+const messageInput = document.getElementById("input");
+
+const sendButton = document.getElementById("send");
+
+const charCount = document.getElementById("charCount");
+
+const blockButton = document.getElementById("block");
+
+const reportButton = document.getElementById("report");
+
+const settingsButton = document.getElementById("settingsBtn");
+
+const settingsDialog = document.getElementById("settings");
+
+const closeSettingsButton =
+  document.getElementById("closeSettings");
+
+const displayNameInput =
+  document.getElementById("displayName");
+
+const genderInput =
+  document.getElementById("gender");
+
+const ageInput =
+  document.getElementById("age");
+
+const saveButton =
+  document.getElementById("save");
+
+const blockedButton =
+  document.getElementById("blocked");
+
+const blockedDialog =
+  document.getElementById("blockedDialog");
+
+const closeBlockedButton =
+  document.getElementById("closeBlocked");
+
+const blockedList =
+  document.getElementById("blockedList");
+
+
+/* =========================================================
+   5. SAFETY / HTML ESCAPING
+   ========================================================= */
 
 function escapeHTML(value) {
+
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -39,778 +115,1512 @@ function escapeHTML(value) {
 
 
 /* =========================================================
-   AUTH
+   6. STATUS
    ========================================================= */
 
-async function initializeAuth() {
-  try {
-    const { data, error } = await supabaseClient.auth.getSession();
+function setAuthStatus(text) {
 
-    if (error) {
-      console.error("Session error:", error);
-      return;
-    }
-
-    if (data.session?.user) {
-      currentUser = data.session.user;
-      await loadOrCreateProfile();
-      await loadUsers();
-      return;
-    }
-
-    const { data: authData, error: authError } =
-      await supabaseClient.auth.signInAnonymously();
-
-    if (authError) {
-      console.error("Anonymous sign-in failed:", authError);
-      showStatus("Unable to start Q1 Chat.");
-      return;
-    }
-
-    currentUser = authData.user;
-
-    await loadOrCreateProfile();
-    await loadUsers();
-
-  } catch (error) {
-    console.error("Initialization error:", error);
-    showStatus("Something went wrong while starting Q1 Chat.");
+  if (authStatus) {
+    authStatus.textContent = text;
   }
 }
 
 
 /* =========================================================
-   AUTH STATE LISTENER
+   7. START APP
    ========================================================= */
 
-supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-  if (!session?.user) return;
+async function startQ1Chat() {
 
-  if (!currentUser || currentUser.id !== session.user.id) {
-    currentUser = session.user;
+  try {
+
+    if (
+      SUPABASE_URL.includes("PASTE_") ||
+      SUPABASE_KEY.includes("PASTE_")
+    ) {
+
+      setAuthStatus("Add Supabase keys");
+
+      console.error(
+        "Q1 Chat: Supabase URL/key has not been configured."
+      );
+
+      return;
+    }
+
+
+    setAuthStatus("Connecting...");
+
+
+    /* -----------------------------------------------
+       Check existing session
+       ----------------------------------------------- */
+
+    const {
+      data: sessionData,
+      error: sessionError
+    } = await supabaseClient.auth.getSession();
+
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+
+    if (sessionData.session?.user) {
+
+      currentUser = sessionData.session.user;
+
+    } else {
+
+      /* ---------------------------------------------
+         Anonymous login
+         --------------------------------------------- */
+
+      const {
+        data,
+        error
+      } = await supabaseClient.auth.signInAnonymously();
+
+
+      if (error) {
+        throw error;
+      }
+
+
+      currentUser = data.user;
+    }
+
+
+    if (!currentUser) {
+      throw new Error("No authenticated user found.");
+    }
+
+
+    setAuthStatus("Connected");
+
+
+    /* -----------------------------------------------
+       Profile
+       ----------------------------------------------- */
 
     await loadOrCreateProfile();
+
+
+    /* -----------------------------------------------
+       Users
+       ----------------------------------------------- */
+
     await loadUsers();
+
+
+    /* -----------------------------------------------
+       UI
+       ----------------------------------------------- */
+
+    setupUI();
+
+  } catch (error) {
+
+    console.error(
+      "Q1 Chat startup error:",
+      error
+    );
+
+    setAuthStatus("Connection failed");
+
+    showError(
+      "Q1 Chat could not connect to Supabase."
+    );
   }
-});
+}
 
 
 /* =========================================================
-   PROFILE
+   8. AUTH STATE
+   ========================================================= */
+
+supabaseClient.auth.onAuthStateChange(
+  async (_event, session) => {
+
+    if (!session?.user) {
+      return;
+    }
+
+    if (
+      currentUser &&
+      currentUser.id === session.user.id
+    ) {
+      return;
+    }
+
+    currentUser = session.user;
+
+    setAuthStatus("Connected");
+
+    await loadOrCreateProfile();
+
+    await loadUsers();
+  }
+);
+
+
+/* =========================================================
+   9. PROFILE
    ========================================================= */
 
 async function loadOrCreateProfile() {
-  if (!currentUser) return;
 
-  const { data, error } = await supabaseClient
+  if (!currentUser) {
+    return;
+  }
+
+
+  const {
+    data,
+    error
+  } = await supabaseClient
     .from("profiles")
     .select("*")
     .eq("id", currentUser.id)
     .maybeSingle();
 
+
   if (error) {
-    console.error("Profile load error:", error);
-    return;
+    throw error;
   }
+
 
   if (data) {
+
     currentProfile = data;
-    updateMyProfileUI();
+
+    fillSettings();
+
     return;
   }
 
+
+  /* -----------------------------------------------
+     Create first profile
+     ----------------------------------------------- */
+
   const username =
-    "user_" + currentUser.id.replace(/-/g, "").slice(0, 8);
+    "user_" +
+    currentUser.id
+      .replace(/-/g, "")
+      .substring(0, 8);
+
 
   const newProfile = {
+
     id: currentUser.id,
+
     username: username,
+
     display_name: "Q1 User",
+
     gender: "other"
   };
 
-  const { data: createdProfile, error: createError } =
-    await supabaseClient
-      .from("profiles")
-      .insert(newProfile)
-      .select()
-      .single();
+
+  const {
+    data: createdProfile,
+    error: createError
+  } = await supabaseClient
+    .from("profiles")
+    .insert(newProfile)
+    .select()
+    .single();
+
 
   if (createError) {
-    console.error("Profile creation error:", createError);
-    return;
+    throw createError;
   }
 
+
   currentProfile = createdProfile;
-  updateMyProfileUI();
+
+  fillSettings();
 }
 
 
 /* =========================================================
-   UPDATE PROFILE
+   10. SETTINGS
    ========================================================= */
 
-async function updateMyProfile({
-  username,
-  display_name,
-  gender
-}) {
-  if (!currentUser) return false;
+function fillSettings() {
 
-  const updates = {};
-
-  if (username !== undefined) {
-    updates.username = username.trim();
+  if (!currentProfile) {
+    return;
   }
 
-  if (display_name !== undefined) {
-    updates.display_name = display_name.trim() || "Q1 User";
+
+  if (displayNameInput) {
+
+    displayNameInput.value =
+      currentProfile.display_name || "";
   }
 
-  if (gender !== undefined) {
-    updates.gender = gender;
+
+  if (genderInput) {
+
+    genderInput.value =
+      currentProfile.gender || "other";
   }
 
-  const { data, error } = await supabaseClient
+
+  /*
+     Age is currently UI-only.
+
+     Your profiles table does NOT have an age column,
+     so we intentionally do not store age in the database.
+  */
+
+}
+
+
+/* =========================================================
+   11. SAVE SETTINGS
+   ========================================================= */
+
+async function saveSettings() {
+
+  if (!currentUser) {
+    return;
+  }
+
+
+  const displayName =
+    displayNameInput.value.trim() ||
+    "Q1 User";
+
+
+  const gender =
+    genderInput.value;
+
+
+  const {
+    data,
+    error
+  } = await supabaseClient
     .from("profiles")
-    .update(updates)
+    .update({
+
+      display_name: displayName,
+
+      gender: gender
+
+    })
     .eq("id", currentUser.id)
     .select()
     .single();
 
+
   if (error) {
-    console.error("Profile update error:", error);
-    return false;
+
+    console.error(
+      "Profile update error:",
+      error
+    );
+
+    showError(
+      "Could not save settings."
+    );
+
+    return;
   }
 
-  currentProfile = data;
-  updateMyProfileUI();
 
-  return true;
+  currentProfile = data;
+
+  closeDialog(settingsDialog);
+
+  await loadUsers();
 }
 
 
 /* =========================================================
-   USERS
+   12. LOAD USERS
    ========================================================= */
 
 async function loadUsers() {
-  if (!currentUser) return;
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("id, username, display_name, gender, created_at")
-    .neq("id", currentUser.id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Users load error:", error);
+  if (!currentUser) {
     return;
   }
 
-  renderUsers(data || []);
+
+  const {
+    data,
+    error
+  } = await supabaseClient
+    .from("profiles")
+    .select(
+      "id,username,display_name,gender,created_at"
+    )
+    .neq("id", currentUser.id)
+    .order(
+      "created_at",
+      {
+        ascending: false
+      }
+    );
+
+
+  if (error) {
+
+    console.error(
+      "Users load error:",
+      error
+    );
+
+    showError(
+      "Could not load people."
+    );
+
+    return;
+  }
+
+
+  allUsers = data || [];
+
+  renderUsers(allUsers);
 }
 
 
 /* =========================================================
-   RENDER USERS
+   13. RENDER USERS
    ========================================================= */
 
 function renderUsers(users) {
-  const container =
-    $("#usersList") ||
-    $("#userList") ||
-    $(".users-list") ||
-    $(".user-list");
 
-  if (!container) {
-    console.warn(
-      "Users container not found. Add #usersList to your HTML."
-    );
+  if (!usersContainer) {
     return;
   }
+
+
+  usersContainer.innerHTML = "";
+
+
+  if (userCount) {
+
+    userCount.textContent =
+      `${users.length} ${
+        users.length === 1
+          ? "person"
+          : "people"
+      }`;
+  }
+
 
   if (!users.length) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <p>No other users yet.</p>
+
+    usersContainer.innerHTML = `
+
+      <div
+        style="
+          padding:25px;
+          text-align:center;
+          color:#69737e;
+          font-size:13px;
+        "
+      >
+
+        No other users yet.
+
       </div>
+
     `;
+
     return;
   }
 
-  container.innerHTML = users.map(user => `
-    <button
-      class="user-item"
-      data-user-id="${escapeHTML(user.id)}"
-      type="button"
-    >
-      <div class="user-avatar">
-        ${escapeHTML(
-          (user.display_name || user.username || "U")
-            .charAt(0)
-            .toUpperCase()
-        )}
+
+  users.forEach(user => {
+
+    const button =
+      document.createElement("button");
+
+
+    button.type = "button";
+
+    button.className = "user";
+
+    button.dataset.userId = user.id;
+
+
+    const name =
+      user.display_name ||
+      user.username ||
+      "Q1 User";
+
+
+    const firstLetter =
+      name
+        .trim()
+        .charAt(0)
+        .toUpperCase() ||
+      "Q";
+
+
+    const gender =
+      ["boy", "girl", "other"].includes(
+        user.gender
+      )
+        ? user.gender
+        : "other";
+
+
+    button.innerHTML = `
+
+      <div class="avatar ${gender}">
+        ${escapeHTML(firstLetter)}
       </div>
 
-      <div class="user-info">
+      <div class="info">
+
         <strong>
-          ${escapeHTML(user.display_name || user.username || "Q1 User")}
+          ${escapeHTML(name)}
         </strong>
 
-        <small>
-          @${escapeHTML(user.username || "user")}
-        </small>
-      </div>
-    </button>
-  `).join("");
+        <div class="preview">
+          @${escapeHTML(
+            user.username || "user"
+          )}
+        </div>
 
-  container.querySelectorAll(".user-item").forEach(button => {
-    button.addEventListener("click", () => {
-      const userId = button.dataset.userId;
-      selectUser(userId);
-    });
+      </div>
+
+      <span class="dot on"></span>
+
+    `;
+
+
+    button.addEventListener(
+      "click",
+      () => selectUser(user)
+    );
+
+
+    usersContainer.appendChild(button);
   });
 }
 
 
 /* =========================================================
-   SELECT USER
+   14. SEARCH
    ========================================================= */
 
-async function selectUser(userId) {
-  if (!currentUser || userId === currentUser.id) return;
+function searchUsers() {
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
+  const query =
+    searchInput.value
+      .trim()
+      .toLowerCase();
 
-  if (error) {
-    console.error("Selected user error:", error);
+
+  if (!query) {
+
+    renderUsers(allUsers);
+
     return;
   }
 
-  if (!data) {
-    showStatus("User not found.");
-    return;
-  }
 
-  selectedUser = data;
+  const filtered =
+    allUsers.filter(user => {
 
-  updateChatHeader();
-  await loadMessages();
-  subscribeToMessages();
+      const name =
+        (
+          user.display_name || ""
+        ).toLowerCase();
 
-  const input =
-    $("#messageInput") ||
-    $("#chatInput");
 
-  if (input) {
-    input.focus();
-  }
+      const username =
+        (
+          user.username || ""
+        ).toLowerCase();
+
+
+      return (
+        name.includes(query) ||
+        username.includes(query)
+      );
+    });
+
+
+  renderUsers(filtered);
 }
 
 
 /* =========================================================
-   CHAT HEADER
+   15. SELECT USER
    ========================================================= */
 
-function updateChatHeader() {
-  if (!selectedUser) return;
+async function selectUser(user) {
+
+  if (!user) {
+    return;
+  }
+
+
+  selectedUser = user;
+
+
+  /* -----------------------------------------------
+     Highlight selected user
+     ----------------------------------------------- */
+
+  document
+    .querySelectorAll(".user")
+    .forEach(element => {
+
+      element.classList.toggle(
+        "selected",
+        element.dataset.userId === user.id
+      );
+    });
+
 
   const name =
-    selectedUser.display_name ||
-    selectedUser.username ||
+    user.display_name ||
+    user.username ||
     "Q1 User";
 
-  const elements = [
-    $("#chatUserName"),
-    $("#selectedUserName"),
-    $(".chat-user-name")
-  ];
 
-  elements.forEach(element => {
-    if (element) {
-      element.textContent = name;
-    }
-  });
+  const firstLetter =
+    name
+      .trim()
+      .charAt(0)
+      .toUpperCase() ||
+    "?";
+
+
+  const gender =
+    ["boy", "girl", "other"].includes(
+      user.gender
+    )
+      ? user.gender
+      : "other";
+
+
+  if (chatName) {
+    chatName.textContent = name;
+  }
+
+
+  if (chatAvatar) {
+
+    chatAvatar.textContent =
+      firstLetter;
+
+    chatAvatar.className =
+      `chat-avatar ${gender}`;
+  }
+
+
+  if (chatStatus) {
+    chatStatus.textContent =
+      "Connected";
+  }
+
+
+  messageInput.disabled = false;
+
+  sendButton.disabled = false;
+
+  blockButton.disabled = false;
+
+  reportButton.disabled = false;
+
+
+  await loadMessages();
+
+  subscribeToMessages();
+
+  messageInput.focus();
 }
 
 
 /* =========================================================
-   LOAD MESSAGES
+   16. LOAD MESSAGES
    ========================================================= */
 
 async function loadMessages() {
-  if (!currentUser || !selectedUser) return;
 
-  const { data, error } = await supabaseClient
-    .from("messages")
-    .select("*")
-    .or(
-      `and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedUser.id}),` +
-      `and(sender_id.eq.${selectedUser.id},receiver_id.eq.${currentUser.id})`
-    )
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("Messages load error:", error);
+  if (
+    !currentUser ||
+    !selectedUser
+  ) {
     return;
   }
+
+
+  const currentId =
+    currentUser.id;
+
+
+  const selectedId =
+    selectedUser.id;
+
+
+  const {
+    data,
+    error
+  } = await supabaseClient
+    .from("messages")
+    .select(
+      "id,sender_id,receiver_id,text,created_at"
+    )
+    .or(
+      `and(sender_id.eq.${currentId},receiver_id.eq.${selectedId}),and(sender_id.eq.${selectedId},receiver_id.eq.${currentId})`
+    )
+    .order(
+      "created_at",
+      {
+        ascending: true
+      }
+    );
+
+
+  if (error) {
+
+    console.error(
+      "Messages load error:",
+      error
+    );
+
+    showError(
+      "Could not load messages."
+    );
+
+    return;
+  }
+
 
   renderMessages(data || []);
 }
 
 
 /* =========================================================
-   RENDER MESSAGES
+   17. RENDER MESSAGES
    ========================================================= */
 
 function renderMessages(messages) {
-  const container =
-    $("#messages") ||
-    $("#messagesList") ||
-    $(".messages") ||
-    $(".messages-list");
 
-  if (!container) {
-    console.warn(
-      "Messages container not found. Add #messages to your HTML."
-    );
+  if (!messagesContainer) {
     return;
   }
+
+
+  messagesContainer.innerHTML = "";
+
 
   if (!messages.length) {
-    container.innerHTML = `
-      <div class="empty-chat">
-        <p>Start the conversation 👋</p>
+
+    messagesContainer.innerHTML = `
+
+      <div class="welcome">
+
+        <div class="welcome-icon">
+          💬
+        </div>
+
+        <h2>
+          Start chatting
+        </h2>
+
+        <p>
+          Send a respectful message to
+          ${escapeHTML(
+            selectedUser?.display_name ||
+            "this person"
+          )}.
+        </p>
+
+        <small>
+          Never share passwords, addresses,
+          phone numbers or private contact details.
+        </small>
+
       </div>
+
     `;
+
     return;
   }
 
-  container.innerHTML = messages.map(message => {
-    const mine = message.sender_id === currentUser.id;
 
-    return `
-      <div class="message ${mine ? "message-sent" : "message-received"}">
-        <div class="message-bubble">
-          ${escapeHTML(message.text)}
-        </div>
+  messages.forEach(message => {
 
-        <small class="message-time">
-          ${formatTime(message.created_at)}
-        </small>
-      </div>
-    `;
-  }).join("");
+    const wrapper =
+      document.createElement("div");
+
+
+    wrapper.className =
+      message.sender_id === currentUser.id
+        ? "msg me"
+        : "msg";
+
+
+    const messageText =
+      document.createElement("div");
+
+
+    messageText.textContent =
+      message.text;
+
+
+    wrapper.appendChild(
+      messageText
+    );
+
+
+    const meta =
+      document.createElement("div");
+
+
+    meta.className = "meta";
+
+    meta.textContent =
+      formatTime(message.created_at);
+
+
+    wrapper.appendChild(
+      meta
+    );
+
+
+    messagesContainer.appendChild(
+      wrapper
+    );
+  });
+
 
   scrollMessagesToBottom();
 }
 
 
 /* =========================================================
-   SEND MESSAGE
+   18. SEND MESSAGE
    ========================================================= */
 
 async function sendMessage() {
-  if (!currentUser || !selectedUser) {
-    showStatus("Select a user first.");
+
+  if (
+    !currentUser ||
+    !selectedUser
+  ) {
     return;
   }
 
-  const input =
-    $("#messageInput") ||
-    $("#chatInput");
 
-  if (!input) {
-    console.error("Message input not found.");
+  const text =
+    messageInput.value.trim();
+
+
+  if (!text) {
     return;
   }
 
-  const text = input.value.trim();
-
-  if (!text) return;
 
   if (text.length > 2000) {
-    showStatus("Message is too long.");
+
+    showError(
+      "Message cannot exceed 2000 characters."
+    );
+
     return;
   }
 
-  const { error } = await supabaseClient
+
+  sendButton.disabled = true;
+
+
+  const {
+    error
+  } = await supabaseClient
     .from("messages")
     .insert({
-      sender_id: currentUser.id,
-      receiver_id: selectedUser.id,
-      text: text
+
+      sender_id:
+        currentUser.id,
+
+      receiver_id:
+        selectedUser.id,
+
+      text:
+        text
+
     });
 
+
+  sendButton.disabled = false;
+
+
   if (error) {
-    console.error("Send message error:", error);
-    showStatus("Message could not be sent.");
+
+    console.error(
+      "Send message error:",
+      error
+    );
+
+    showError(
+      "Message could not be sent."
+    );
+
     return;
   }
 
-  input.value = "";
-  input.focus();
+
+  messageInput.value = "";
+
+  updateCharCount();
 
   await loadMessages();
+
+  messageInput.focus();
 }
 
 
 /* =========================================================
-   REALTIME MESSAGES
+   19. REALTIME
    ========================================================= */
 
 function subscribeToMessages() {
-  if (!currentUser || !selectedUser) return;
 
-  if (messageSubscription) {
-    supabaseClient.removeChannel(messageSubscription);
-    messageSubscription = null;
+  if (
+    !currentUser ||
+    !selectedUser
+  ) {
+    return;
   }
 
-  messageSubscription = supabaseClient
-    .channel(
-      `q1-chat-${currentUser.id}-${selectedUser.id}`
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${currentUser.id}`
-      },
-      async () => {
-        await loadMessages();
-      }
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-        filter: `sender_id=eq.${currentUser.id}`
-      },
-      async () => {
-        await loadMessages();
-      }
-    )
-    .subscribe((status) => {
-      console.log("Realtime status:", status);
-    });
+
+  if (messageChannel) {
+
+    supabaseClient.removeChannel(
+      messageChannel
+    );
+
+    messageChannel = null;
+  }
+
+
+  messageChannel =
+    supabaseClient
+      .channel(
+        `q1-chat-${currentUser.id}-${selectedUser.id}`
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages"
+        },
+        async payload => {
+
+          const message =
+            payload.new;
+
+
+          const relevant =
+            (
+              message.sender_id ===
+              currentUser.id &&
+              message.receiver_id ===
+              selectedUser.id
+            ) ||
+            (
+              message.sender_id ===
+              selectedUser.id &&
+              message.receiver_id ===
+              currentUser.id
+            );
+
+
+          if (relevant) {
+            await loadMessages();
+          }
+        }
+      )
+      .subscribe(status => {
+
+        console.log(
+          "Realtime:",
+          status
+        );
+      });
 }
 
 
 /* =========================================================
-   BLOCK USER
+   20. BLOCK USER
    ========================================================= */
 
-async function blockUser(userId) {
-  if (!currentUser || !userId) return false;
+async function blockSelectedUser() {
 
-  const { error } = await supabaseClient
-    .from("blocks")
-    .insert({
-      blocker_id: currentUser.id,
-      blocked_id: userId
-    });
-
-  if (error) {
-    if (error.code === "23505") {
-      showStatus("User is already blocked.");
-    } else {
-      console.error("Block error:", error);
-      showStatus("Could not block user.");
-    }
-
-    return false;
+  if (
+    !currentUser ||
+    !selectedUser
+  ) {
+    return;
   }
 
-  showStatus("User blocked.");
-  return true;
+
+  const confirmed =
+    window.confirm(
+      `Block ${
+        selectedUser.display_name ||
+        selectedUser.username ||
+        "this user"
+      }?`
+    );
+
+
+  if (!confirmed) {
+    return;
+  }
+
+
+  const {
+    error
+  } = await supabaseClient
+    .from("blocks")
+    .insert({
+
+      blocker_id:
+        currentUser.id,
+
+      blocked_id:
+        selectedUser.id
+
+    });
+
+
+  if (error) {
+
+    if (error.code === "23505") {
+
+      showError(
+        "This user is already blocked."
+      );
+
+    } else {
+
+      console.error(
+        "Block error:",
+        error
+      );
+
+      showError(
+        "Could not block this user."
+      );
+    }
+
+    return;
+  }
+
+
+  showSuccess(
+    "User blocked."
+  );
+
+
+  await loadBlockedUsers();
 }
 
 
 /* =========================================================
-   UNBLOCK USER
+   21. LOAD BLOCKED USERS
+   ========================================================= */
+
+async function loadBlockedUsers() {
+
+  if (!currentUser) {
+    return;
+  }
+
+
+  const {
+    data,
+    error
+  } = await supabaseClient
+    .from("blocks")
+    .select("blocked_id")
+    .eq(
+      "blocker_id",
+      currentUser.id
+    );
+
+
+  if (error) {
+
+    console.error(
+      "Blocked users error:",
+      error
+    );
+
+    return;
+  }
+
+
+  blockedList.innerHTML = "";
+
+
+  if (!data || !data.length) {
+
+    blockedList.innerHTML =
+      "<p>No blocked users.</p>";
+
+    return;
+  }
+
+
+  for (const block of data) {
+
+    const {
+      data: user
+    } = await supabaseClient
+      .from("profiles")
+      .select(
+        "id,username,display_name"
+      )
+      .eq(
+        "id",
+        block.blocked_id
+      )
+      .maybeSingle();
+
+
+    if (!user) {
+      continue;
+    }
+
+
+    const row =
+      document.createElement("div");
+
+
+    row.className =
+      "blockedrow";
+
+
+    row.innerHTML = `
+
+      <span>
+        ${escapeHTML(
+          user.display_name ||
+          user.username ||
+          "Q1 User"
+        )}
+      </span>
+
+      <button
+        type="button"
+        data-user-id="${escapeHTML(user.id)}"
+      >
+        Unblock
+      </button>
+
+    `;
+
+
+    row
+      .querySelector("button")
+      .addEventListener(
+        "click",
+        async () => {
+
+          await unblockUser(
+            user.id
+          );
+
+          await loadBlockedUsers();
+        }
+      );
+
+
+    blockedList.appendChild(row);
+  }
+}
+
+
+/* =========================================================
+   22. UNBLOCK USER
    ========================================================= */
 
 async function unblockUser(userId) {
-  if (!currentUser || !userId) return false;
 
-  const { error } = await supabaseClient
+  if (!currentUser) {
+    return;
+  }
+
+
+  const {
+    error
+  } = await supabaseClient
     .from("blocks")
     .delete()
-    .eq("blocker_id", currentUser.id)
-    .eq("blocked_id", userId);
+    .eq(
+      "blocker_id",
+      currentUser.id
+    )
+    .eq(
+      "blocked_id",
+      userId
+    );
+
 
   if (error) {
-    console.error("Unblock error:", error);
-    showStatus("Could not unblock user.");
-    return false;
+
+    console.error(
+      "Unblock error:",
+      error
+    );
+
+    showError(
+      "Could not unblock user."
+    );
+
+    return;
   }
 
-  showStatus("User unblocked.");
-  return true;
+
+  showSuccess(
+    "User unblocked."
+  );
 }
 
 
 /* =========================================================
-   CHECK BLOCK
+   23. CHARACTER COUNT
    ========================================================= */
 
-async function isUserBlocked(userId) {
-  if (!currentUser || !userId) return false;
+function updateCharCount() {
 
-  const { data, error } = await supabaseClient
-    .from("blocks")
-    .select("blocked_id")
-    .eq("blocker_id", currentUser.id)
-    .eq("blocked_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Block check error:", error);
-    return false;
+  if (!messageInput || !charCount) {
+    return;
   }
 
-  return !!data;
+
+  charCount.textContent =
+    `${messageInput.value.length}/2000`;
 }
 
 
 /* =========================================================
-   FORMAT TIME
+   24. TIME
    ========================================================= */
 
 function formatTime(timestamp) {
-  if (!timestamp) return "";
 
-  const date = new Date(timestamp);
+  if (!timestamp) {
+    return "";
+  }
 
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+
+  return new Date(
+    timestamp
+  ).toLocaleTimeString(
+    [],
+    {
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  );
 }
 
 
 /* =========================================================
-   SCROLL CHAT
+   25. SCROLL
    ========================================================= */
 
 function scrollMessagesToBottom() {
-  const container =
-    $("#messages") ||
-    $("#messagesList") ||
-    $(".messages") ||
-    $(".messages-list");
 
-  if (!container) return;
-
-  container.scrollTop = container.scrollHeight;
-}
-
-
-/* =========================================================
-   MY PROFILE UI
-   ========================================================= */
-
-function updateMyProfileUI() {
-  if (!currentProfile) return;
-
-  const name =
-    currentProfile.display_name ||
-    currentProfile.username ||
-    "Q1 User";
-
-  const username =
-    currentProfile.username || "";
-
-  const nameElements = [
-    $("#myDisplayName"),
-    $("#profileName"),
-    $(".my-display-name")
-  ];
-
-  nameElements.forEach(element => {
-    if (element) {
-      element.textContent = name;
-    }
-  });
-
-  const usernameElements = [
-    $("#myUsername"),
-    $("#profileUsername"),
-    $(".my-username")
-  ];
-
-  usernameElements.forEach(element => {
-    if (element) {
-      element.textContent = username
-        ? "@" + username
-        : "";
-    }
-  });
-}
-
-
-/* =========================================================
-   STATUS MESSAGE
-   ========================================================= */
-
-function showStatus(message) {
-  console.log(message);
-
-  const status =
-    $("#status") ||
-    $("#statusMessage") ||
-    $(".status-message");
-
-  if (!status) return;
-
-  status.textContent = message;
-  status.classList.add("show");
-
-  setTimeout(() => {
-    status.classList.remove("show");
-  }, 3000);
-}
-
-
-/* =========================================================
-   EVENT LISTENERS
-   ========================================================= */
-
-function setupEventListeners() {
-
-  /* Send button */
-
-  const sendButton =
-    $("#sendButton") ||
-    $("#sendBtn") ||
-    $(".send-button");
-
-  if (sendButton) {
-    sendButton.addEventListener("click", sendMessage);
+  if (!messagesContainer) {
+    return;
   }
 
 
-  /* Enter key */
+  messagesContainer.scrollTop =
+    messagesContainer.scrollHeight;
+}
 
-  const input =
-    $("#messageInput") ||
-    $("#chatInput");
 
-  if (input) {
-    input.addEventListener("keydown", event => {
-      if (event.key === "Enter" && !event.shiftKey) {
+/* =========================================================
+   26. DIALOG HELPERS
+   ========================================================= */
+
+function openDialog(dialog) {
+
+  if (!dialog) {
+    return;
+  }
+
+
+  if (
+    typeof dialog.showModal ===
+    "function"
+  ) {
+
+    dialog.showModal();
+
+  } else {
+
+    dialog.setAttribute(
+      "open",
+      ""
+    );
+  }
+}
+
+
+function closeDialog(dialog) {
+
+  if (!dialog) {
+    return;
+  }
+
+
+  if (
+    typeof dialog.close ===
+    "function"
+  ) {
+
+    dialog.close();
+
+  } else {
+
+    dialog.removeAttribute(
+      "open"
+    );
+  }
+}
+
+
+/* =========================================================
+   27. UI
+   ========================================================= */
+
+function setupUI() {
+
+  /* Search */
+
+  searchInput?.addEventListener(
+    "input",
+    searchUsers
+  );
+
+
+  /* Send */
+
+  sendButton?.addEventListener(
+    "click",
+    sendMessage
+  );
+
+
+  /* Enter to send */
+
+  messageInput?.addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+
         event.preventDefault();
+
         sendMessage();
       }
+    }
+  );
+
+
+  /* Character count */
+
+  messageInput?.addEventListener(
+    "input",
+    updateCharCount
+  );
+
+
+  /* Settings */
+
+  settingsButton?.addEventListener(
+    "click",
+    () => {
+
+      fillSettings();
+
+      openDialog(
+        settingsDialog
+      );
+    }
+  );
+
+
+  closeSettingsButton?.addEventListener(
+    "click",
+    () => {
+
+      closeDialog(
+        settingsDialog
+      );
+    }
+  );
+
+
+  /* Save settings */
+
+  saveButton?.addEventListener(
+    "click",
+    saveSettings
+  );
+
+
+  /* Block */
+
+  blockButton?.addEventListener(
+    "click",
+    blockSelectedUser
+  );
+
+
+  /* Blocked users */
+
+  blockedButton?.addEventListener(
+    "click",
+    async () => {
+
+      await loadBlockedUsers();
+
+      openDialog(
+        blockedDialog
+      );
+    }
+  );
+
+
+  closeBlockedButton?.addEventListener(
+    "click",
+    () => {
+
+      closeDialog(
+        blockedDialog
+      );
+    }
+  );
+
+
+  /* Navigation filters */
+
+  document
+    .querySelectorAll(
+      "nav button[data-filter]"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          document
+            .querySelectorAll(
+              "nav button[data-filter]"
+            )
+            .forEach(btn =>
+              btn.classList.remove(
+                "active"
+              )
+            );
+
+
+          button.classList.add(
+            "active"
+          );
+
+
+          /*
+             At the moment Online/Unread/
+             Recent/Friends are visual filters.
+
+             We can build the full unread/
+             friends system later.
+          */
+
+          if (
+            button.dataset.filter ===
+            "online"
+          ) {
+
+            renderUsers(allUsers);
+
+          } else {
+
+            renderUsers(allUsers);
+          }
+        }
+      );
     });
+}
+
+
+/* =========================================================
+   28. ERROR / SUCCESS
+   ========================================================= */
+
+function showError(message) {
+
+  console.error(message);
+
+  if (chatStatus) {
+    chatStatus.textContent =
+      message;
   }
+}
 
 
-  /* Profile save */
+function showSuccess(message) {
 
-  const profileForm = $("#profileForm");
+  console.log(message);
 
-  if (profileForm) {
-    profileForm.addEventListener("submit", async event => {
-      event.preventDefault();
-
-      const username =
-        $("#username")?.value || "";
-
-      const display_name =
-        $("#displayName")?.value || "";
-
-      const gender =
-        $("#gender")?.value || "other";
-
-      const success = await updateMyProfile({
-        username,
-        display_name,
-        gender
-      });
-
-      if (success) {
-        showStatus("Profile updated.");
-        await loadUsers();
-      }
-    });
-  }
-
-
-  /* Refresh users */
-
-  const refreshButton =
-    $("#refreshUsers") ||
-    $("#refreshButton");
-
-  if (refreshButton) {
-    refreshButton.addEventListener("click", loadUsers);
-  }
-
-
-  /* Block button */
-
-  const blockButton =
-    $("#blockUser") ||
-    $("#blockButton");
-
-  if (blockButton) {
-    blockButton.addEventListener("click", async () => {
-      if (!selectedUser) return;
-
-      const success = await blockUser(selectedUser.id);
-
-      if (success) {
-        await loadUsers();
-      }
-    });
+  if (chatStatus) {
+    chatStatus.textContent =
+      message;
   }
 }
 
 
 /* =========================================================
-   CLEANUP
+   29. CLEANUP
    ========================================================= */
 
-window.addEventListener("beforeunload", () => {
-  if (messageSubscription) {
-    supabaseClient.removeChannel(messageSubscription);
+window.addEventListener(
+  "beforeunload",
+  () => {
+
+    if (messageChannel) {
+
+      supabaseClient.removeChannel(
+        messageChannel
+      );
+    }
   }
-});
+);
 
 
 /* =========================================================
-   GLOBAL FUNCTIONS
+   30. START
    ========================================================= */
 
-window.Q1Chat = {
-  sendMessage,
-  loadUsers,
-  loadMessages,
-  selectUser,
-  updateMyProfile,
-  blockUser,
-  unblockUser,
-  isUserBlocked
-};
-
-
-/* =========================================================
-   START Q1 CHAT
-   ========================================================= */
-
-document.addEventListener("DOMContentLoaded", async () => {
-  setupEventListeners();
-  await initializeAuth();
-});
+document.addEventListener(
+  "DOMContentLoaded",
+  startQ1Chat
+);
 ```
