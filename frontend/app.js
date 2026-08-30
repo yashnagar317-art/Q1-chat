@@ -1,6 +1,12 @@
 /* =========================================================
    Q1 CHAT — APP.JS
-   Supabase + Local UI + Safe Messaging
+   Supabase + Anonymous Auth + Profiles + Messages
+   Block / Report / Settings / Search / Filters
+   ========================================================= */
+
+
+/* =========================================================
+   SUPABASE CONFIG
    ========================================================= */
 
 const SUPABASE_URL =
@@ -9,11 +15,41 @@ const SUPABASE_URL =
 const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
 
-const supabaseClient =
-  window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
+
+/* =========================================================
+   SUPABASE CLIENT
+   ========================================================= */
+
+let supabaseClient = null;
+
+try {
+
+  if (
+    !window.supabase ||
+    typeof window.supabase.createClient !== "function"
+  ) {
+
+    throw new Error(
+      "Supabase library was not loaded."
+    );
+
+  }
+
+  supabaseClient =
+    window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_PUBLISHABLE_KEY
+    );
+
+}
+catch (error) {
+
+  console.error(
+    "Supabase initialization failed:",
+    error
   );
+
+}
 
 
 /* =========================================================
@@ -30,28 +66,63 @@ const state = {
 
   users: [],
 
-  blocked: JSON.parse(
-    localStorage.getItem("q1blocked") || "[]"
+  blocked: loadJSON(
+    "q1blocked",
+    []
   ),
 
-  messages: JSON.parse(
-    localStorage.getItem("q1messages") || "{}"
+  messages: loadJSON(
+    "q1messages",
+    {}
   ),
 
-  settings: JSON.parse(
-    localStorage.getItem("q1settings") ||
-    '{"name":"You","gender":"other","age":"13-17"}'
+  settings: loadJSON(
+    "q1settings",
+    {
+      name: "You",
+      gender: "other",
+      age: "13-17"
+    }
   )
 
 };
 
 
 /* =========================================================
-   SHORTCUTS
+   HELPERS
    ========================================================= */
 
-const $ = selector =>
-  document.querySelector(selector);
+function $(selector) {
+
+  return document.querySelector(selector);
+
+}
+
+
+function loadJSON(key, fallback) {
+
+  try {
+
+    const value =
+      localStorage.getItem(key);
+
+    return value
+      ? JSON.parse(value)
+      : fallback;
+
+  }
+  catch (error) {
+
+    console.warn(
+      `Could not read ${key}:`,
+      error
+    );
+
+    return fallback;
+
+  }
+
+}
 
 
 function escapeHtml(value) {
@@ -60,29 +131,38 @@ function escapeHtml(value) {
     .replace(
       /[&<>'"]/g,
       character => ({
+
         "&": "&amp;",
         "<": "&lt;",
         ">": "&gt;",
         "'": "&#39;",
         '"': "&quot;"
+
       })[character]
     );
 
 }
 
 
-/* =========================================================
-   SAFETY FILTER
-   ========================================================= */
+function getUser(id) {
 
-function blockedText(text) {
-
-  return (
-    /https?:\/\/\S+/i.test(text) ||
-    /www\.\S+/i.test(text) ||
-    /\b(instagram|snapchat|onlyfans|telegram|discord)\b/i.test(text) ||
-    /\b(dm me|link in bio|follow me|add me)\b/i.test(text)
+  return state.users.find(
+    user => user.id === id
   );
+
+}
+
+
+function getCurrentTime() {
+
+  return new Date()
+    .toLocaleTimeString(
+      [],
+      {
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
 
 }
 
@@ -93,71 +173,173 @@ function blockedText(text) {
 
 function saveLocal() {
 
-  localStorage.setItem(
-    "q1blocked",
-    JSON.stringify(state.blocked)
-  );
+  try {
 
-  localStorage.setItem(
-    "q1messages",
-    JSON.stringify(state.messages)
-  );
+    localStorage.setItem(
+      "q1blocked",
+      JSON.stringify(state.blocked)
+    );
 
-  localStorage.setItem(
-    "q1settings",
-    JSON.stringify(state.settings)
+    localStorage.setItem(
+      "q1messages",
+      JSON.stringify(state.messages)
+    );
+
+    localStorage.setItem(
+      "q1settings",
+      JSON.stringify(state.settings)
+    );
+
+  }
+  catch (error) {
+
+    console.warn(
+      "Local storage save failed:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   SAFETY FILTER
+   ========================================================= */
+
+function blockedText(text) {
+
+  const value =
+    String(text || "");
+
+  return (
+
+    /https?:\/\/\S+/i.test(value) ||
+
+    /www\.\S+/i.test(value) ||
+
+    /\b(
+      instagram|
+      snapchat|
+      onlyfans|
+      telegram|
+      discord
+    )\b/ix.test(value) ||
+
+    /\b(
+      dm\s+me|
+      link\s+in\s+bio|
+      follow\s+me|
+      add\s+me
+    )\b/ix.test(value)
+
   );
 
 }
 
 
 /* =========================================================
-   AUTH
+   APP ERROR
+   ========================================================= */
+
+function showAppError(message) {
+
+  const usersBox =
+    $("#users");
+
+  if (!usersBox) return;
+
+  usersBox.innerHTML = `
+
+    <div style="
+      padding:16px;
+      margin:10px;
+      border-radius:12px;
+      background:#fff3f3;
+      color:#b42318;
+      font-size:14px;
+      line-height:1.5;
+    ">
+
+      ⚠️ ${escapeHtml(message)}
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================
+   AUTHENTICATION
    ========================================================= */
 
 async function ensureUser() {
 
+  if (!supabaseClient) {
+
+    showAppError(
+      "Supabase could not be loaded. Check your HTML CDN script."
+    );
+
+    return null;
+
+  }
+
+
   try {
 
     const {
-      data: sessionData,
-      error: sessionError
-    } = await supabaseClient.auth.getSession();
+      data,
+      error
+    } =
+      await supabaseClient.auth.getSession();
 
-    if (sessionError) {
+
+    if (error) {
+
       console.warn(
-        "Session error:",
-        sessionError.message
+        "Session check failed:",
+        error.message
       );
+
     }
 
 
-    if (sessionData?.session?.user) {
+    if (data?.session?.user) {
 
       state.currentUser =
-        sessionData.session.user;
+        data.session.user;
 
       return state.currentUser;
 
     }
 
 
+    /*
+      Anonymous sign-in.
+
+      Anonymous Sign-Ins must be enabled
+      inside Supabase Authentication.
+    */
+
     const {
-      data,
-      error
+      data: anonymousData,
+      error: anonymousError
     } =
-      await supabaseClient.auth.signInAnonymously();
+      await supabaseClient.auth
+        .signInAnonymously();
 
 
-    if (error) {
+    if (anonymousError) {
 
       console.error(
         "Anonymous sign-in failed:",
-        error.message
+        anonymousError
       );
 
       showAppError(
-        "Could not create your chat session. Check Supabase Anonymous Sign-Ins."
+        "Anonymous sign-in failed. Make sure Anonymous Sign-Ins are enabled in Supabase."
       );
 
       return null;
@@ -166,12 +348,12 @@ async function ensureUser() {
 
 
     state.currentUser =
-      data.user;
+      anonymousData?.user || null;
+
 
     return state.currentUser;
 
   }
-
   catch (error) {
 
     console.error(
@@ -180,7 +362,7 @@ async function ensureUser() {
     );
 
     showAppError(
-      "Authentication could not be completed."
+      "Could not connect to your Q1 Chat account."
     );
 
     return null;
@@ -191,36 +373,136 @@ async function ensureUser() {
 
 
 /* =========================================================
-   ERROR MESSAGE
+   AUTH STATE LISTENER
    ========================================================= */
 
-function showAppError(message) {
+if (supabaseClient) {
 
-  const usersBox = $("#users");
+  supabaseClient.auth.onAuthStateChange(
+    (_event, session) => {
 
-  if (!usersBox) return;
+      if (session?.user) {
 
-  usersBox.innerHTML = `
-    <div style="
-      padding:16px;
-      margin:10px;
-      border-radius:12px;
-      background:#fff3f3;
-      color:#b42318;
-      font-size:14px;
-    ">
-      ⚠️ ${escapeHtml(message)}
-    </div>
-  `;
+        state.currentUser =
+          session.user;
+
+      }
+      else {
+
+        state.currentUser =
+          null;
+
+      }
+
+    }
+  );
 
 }
 
 
 /* =========================================================
-   LOAD PROFILES
+   CREATE / SAVE PROFILE
+   ========================================================= */
+
+async function saveOwnProfile() {
+
+  if (!state.currentUser) {
+    return false;
+  }
+
+
+  try {
+
+    const username =
+      (
+        state.settings.name ||
+        "q1_user"
+      )
+        .toLowerCase()
+        .trim()
+        .replace(
+          /[^a-z0-9_]/g,
+          "_"
+        )
+        .replace(
+          /_+/g,
+          "_"
+        )
+        .slice(0, 30)
+        || "q1_user";
+
+
+    const profile = {
+
+      id:
+        state.currentUser.id,
+
+      username:
+        username,
+
+      display_name:
+        state.settings.name ||
+        "You",
+
+      gender:
+        state.settings.gender ||
+        "other"
+
+    };
+
+
+    const {
+      error
+    } =
+      await supabaseClient
+        .from("profiles")
+        .upsert(
+          profile,
+          {
+            onConflict: "id"
+          }
+        );
+
+
+    if (error) {
+
+      console.warn(
+        "Profile save failed:",
+        error.message
+      );
+
+      return false;
+
+    }
+
+
+    return true;
+
+  }
+  catch (error) {
+
+    console.error(
+      "Profile save error:",
+      error
+    );
+
+    return false;
+
+  }
+
+}
+
+
+/* =========================================================
+   LOAD USERS / PROFILES
    ========================================================= */
 
 async function loadUsers() {
+
+  if (!supabaseClient) {
+    return;
+  }
+
 
   try {
 
@@ -261,36 +543,49 @@ async function loadUsers() {
       (data || [])
         .filter(
           profile =>
-            profile.id !== state.currentUser?.id
+            profile.id !==
+            state.currentUser?.id
         )
-        .map(profile => ({
+        .map(
+          profile => ({
 
-          id: profile.id,
+            id:
+              profile.id,
 
-          name:
-            profile.display_name ||
-            profile.username ||
-            "Q1 User",
+            name:
+              profile.display_name ||
+              profile.username ||
+              "Q1 User",
 
-          gender:
-            profile.gender ||
-            "other",
+            gender:
+              profile.gender ||
+              "other",
 
-          online: true,
+            /*
+              Supabase does not automatically
+              tell us real online presence here.
+              We keep this as a UI status for now.
+            */
 
-          friends: false,
+            online:
+              true,
 
-          unread: 0,
+            friends:
+              false,
 
-          last: ""
+            unread:
+              0,
 
-        }));
+            last:
+              ""
+
+          })
+        );
 
 
     renderUsers();
 
   }
-
   catch (error) {
 
     console.error(
@@ -304,19 +599,6 @@ async function loadUsers() {
 
 
 /* =========================================================
-   GET USER
-   ========================================================= */
-
-function getUser(id) {
-
-  return state.users.find(
-    user => user.id === id
-  );
-
-}
-
-
-/* =========================================================
    RENDER USERS
    ========================================================= */
 
@@ -325,10 +607,13 @@ function renderUsers() {
   const usersBox =
     $("#users");
 
+  if (!usersBox) {
+    return;
+  }
+
+
   const searchInput =
     $("#search");
-
-  if (!usersBox) return;
 
 
   const query =
@@ -343,7 +628,9 @@ function renderUsers() {
     state.users
       .filter(
         user =>
-          !state.blocked.includes(user.id)
+          !state.blocked.includes(
+            user.id
+          )
       )
       .filter(
         user =>
@@ -353,72 +640,117 @@ function renderUsers() {
       );
 
 
-  if (state.filter === "online") {
+  /* ONLINE */
+
+  if (
+    state.filter === "online"
+  ) {
 
     list =
       list.filter(
-        user => user.online
+        user =>
+          user.online
       );
 
   }
 
 
-  if (state.filter === "unread") {
+  /* UNREAD */
+
+  else if (
+    state.filter === "unread"
+  ) {
 
     list =
       list.filter(
-        user => user.unread > 0
+        user =>
+          user.unread > 0
       );
 
   }
 
 
-  if (state.filter === "friends") {
+  /* RECENT */
+
+  else if (
+    state.filter === "recent"
+  ) {
 
     list =
       list.filter(
-        user => user.friends
+        user =>
+          Boolean(
+            user.last
+          )
       );
 
   }
 
 
-  if (state.filter === "recent") {
+  /* FRIENDS */
+
+  else if (
+    state.filter === "friends"
+  ) {
 
     list =
       list.filter(
-        user => user.last
+        user =>
+          user.friends
       );
 
   }
 
+
+  /* COUNT */
 
   const count =
     $("#userCount");
 
+
   if (count) {
 
     count.textContent =
-      `${list.length} ${list.length === 1 ? "person" : "people"}`;
+      `${list.length} ${
+        list.length === 1
+          ? "person"
+          : "people"
+      }`;
 
   }
 
 
+  /* EMPTY */
+
   if (!list.length) {
 
     usersBox.innerHTML = `
+
       <div style="
-        padding:20px;
+        padding:24px 16px;
         text-align:center;
         color:#777;
       ">
-        👥<br>
-        <strong>No users found</strong>
+
+        <div style="
+          font-size:30px;
+          margin-bottom:8px;
+        ">
+          👥
+        </div>
+
+        <strong>
+          No users found
+        </strong>
+
         <br>
+
         <small>
-          Create another account to see people here.
+          Create another Q1 account to see people here.
         </small>
+
       </div>
+
     `;
 
     return;
@@ -426,77 +758,104 @@ function renderUsers() {
   }
 
 
+  /* USER LIST */
+
   usersBox.innerHTML =
-    list.map(user => `
+    list
+      .map(
+        user => `
 
-      <button
-        class="user ${
-          state.selected === user.id
-            ? "selected"
-            : ""
-        }"
-        type="button"
-        data-user-id="${escapeHtml(user.id)}"
-      >
+          <button
+            class="user ${
+              state.selected === user.id
+                ? "selected"
+                : ""
+            }"
+            type="button"
+            data-user-id="${escapeHtml(
+              user.id
+            )}"
+          >
 
-        <span
-          class="avatar ${escapeHtml(user.gender)}"
-        >
-          ${escapeHtml(
-            user.name.charAt(0).toUpperCase()
-          )}
-        </span>
+            <span
+              class="avatar ${escapeHtml(
+                user.gender
+              )}"
+            >
 
-        <span class="info">
+              ${escapeHtml(
+                user.name
+                  .charAt(0)
+                  .toUpperCase()
+              )}
 
-          <b>
-            ${escapeHtml(user.name)}
+            </span>
 
-            <i
-              class="dot ${
-                user.online ? "on" : ""
-              }"
-            ></i>
-          </b>
 
-          <span class="preview">
+            <span class="info">
+
+              <b>
+
+                ${escapeHtml(
+                  user.name
+                )}
+
+                <i
+                  class="dot ${
+                    user.online
+                      ? "on"
+                      : ""
+                  }"
+                ></i>
+
+              </b>
+
+
+              <span class="preview">
+
+                ${escapeHtml(
+                  user.last ||
+                  "Start a conversation"
+                )}
+
+              </span>
+
+            </span>
+
+
             ${
-              escapeHtml(
-                user.last ||
-                "Start a conversation"
-              )
+              user.unread
+                ? `<small>${user.unread}</small>`
+                : ""
             }
-          </span>
 
-        </span>
+          </button>
 
-        ${
-          user.unread
-            ? `<small>${user.unread}</small>`
-            : ""
-        }
-
-      </button>
-
-    `).join("");
+        `
+      )
+      .join("");
 
 
   usersBox
-    .querySelectorAll("[data-user-id]")
-    .forEach(button => {
+    .querySelectorAll(
+      "[data-user-id]"
+    )
+    .forEach(
+      button => {
 
-      button.addEventListener(
-        "click",
-        () => {
+        button.addEventListener(
+          "click",
+          () => {
 
-          selectUser(
-            button.dataset.userId
-          );
+            selectUser(
+              button.dataset.userId
+            );
 
-        }
-      );
+          }
+        );
 
-    });
+      }
+    );
 
 }
 
@@ -510,7 +869,11 @@ async function selectUser(id) {
   const user =
     getUser(id);
 
-  if (!user) return;
+
+  if (!user) {
+    return;
+  }
+
 
   if (
     state.blocked.includes(id)
@@ -519,17 +882,28 @@ async function selectUser(id) {
   }
 
 
-  state.selected = id;
+  state.selected =
+    id;
 
-  user.unread = 0;
+
+  user.unread =
+    0;
 
 
-  $("#chatName").textContent =
-    user.name;
+  const chatName =
+    $("#chatName");
+
+  if (chatName) {
+
+    chatName.textContent =
+      user.name;
+
+  }
 
 
   const avatar =
     $("#chatAvatar");
+
 
   if (avatar) {
 
@@ -541,25 +915,59 @@ async function selectUser(id) {
   }
 
 
-  $("#status").innerHTML = `
-    <span class="dot ${
-      user.online ? "on" : ""
-    }"></span>
-    ${
-      user.online
-        ? "Online"
-        : "Offline"
-    }
-  `;
+  const status =
+    $("#status");
 
 
-  $("#input").disabled = false;
+  if (status) {
 
-  $("#send").disabled = false;
+    status.innerHTML = `
 
-  $("#block").disabled = false;
+      <span class="dot ${
+        user.online
+          ? "on"
+          : ""
+      }"></span>
 
-  $("#report").disabled = false;
+      ${
+        user.online
+          ? "Online"
+          : "Offline"
+      }
+
+    `;
+
+  }
+
+
+  const input =
+    $("#input");
+
+  const send =
+    $("#send");
+
+  const block =
+    $("#block");
+
+  const report =
+    $("#report");
+
+
+  if (input) {
+    input.disabled = false;
+  }
+
+  if (send) {
+    send.disabled = false;
+  }
+
+  if (block) {
+    block.disabled = false;
+  }
+
+  if (report) {
+    report.disabled = false;
+  }
 
 
   if (!state.messages[id]) {
@@ -575,6 +983,7 @@ async function selectUser(id) {
 
   renderMessages();
 
+
   await loadConversation(id);
 
 }
@@ -586,7 +995,15 @@ async function selectUser(id) {
 
 async function loadConversation(userId) {
 
-  if (!state.currentUser) return;
+  if (
+    !supabaseClient ||
+    !state.currentUser
+  ) {
+
+    return;
+
+  }
+
 
   try {
 
@@ -601,7 +1018,133 @@ async function loadConversation(userId) {
       await supabaseClient
         .from("messages")
         .select(
-          "id, sender_id, receiver_id, text, created_at"
+          "id, sender_id, receiver_id, text, content, created_at"
+        )
+        .or(
+          `and(sender_id.eq.${myId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${myId})`
+        )
+        .order(
+          "created_at",
+          {
+            ascending: true
+          }
+        );
+
+
+    if (error) {
+
+      /*
+        If your table has only `content`
+        and not `text`, retry with content.
+      */
+
+      if (
+        /column.*text.*does not exist/i
+          .test(error.message)
+      ) {
+
+        await loadConversationUsingContent(
+          userId
+        );
+
+        return;
+
+      }
+
+
+      console.warn(
+        "Conversation loading failed:",
+        error.message
+      );
+
+      return;
+
+    }
+
+
+    if (!data) {
+      return;
+    }
+
+
+    state.messages[userId] =
+      data.map(
+        row => ({
+
+          me:
+            row.sender_id === myId,
+
+          text:
+            row.text ??
+            row.content ??
+            "",
+
+          time:
+            row.created_at
+              ? new Date(
+                  row.created_at
+                ).toLocaleTimeString(
+                  [],
+                  {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  }
+                )
+              : ""
+
+        })
+      );
+
+
+    saveLocal();
+
+    renderMessages();
+
+  }
+  catch (error) {
+
+    console.error(
+      "Conversation error:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   LOAD CONVERSATION — CONTENT FALLBACK
+   ========================================================= */
+
+async function loadConversationUsingContent(
+  userId
+) {
+
+  if (
+    !supabaseClient ||
+    !state.currentUser
+  ) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const myId =
+      state.currentUser.id;
+
+
+    const {
+      data,
+      error
+    } =
+      await supabaseClient
+        .from("messages")
+        .select(
+          "id, sender_id, receiver_id, content, created_at"
         )
         .or(
           `and(sender_id.eq.${myId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${myId})`
@@ -617,7 +1160,7 @@ async function loadConversation(userId) {
     if (error) {
 
       console.warn(
-        "Conversation loading failed:",
+        "Content conversation loading failed:",
         error.message
       );
 
@@ -626,32 +1169,32 @@ async function loadConversation(userId) {
     }
 
 
-    if (!data) return;
-
-
     state.messages[userId] =
-      data.map(row => ({
+      (data || [])
+        .map(
+          row => ({
 
-        me:
-          row.sender_id === myId,
+            me:
+              row.sender_id === myId,
 
-        text:
-          row.text || "",
+            text:
+              row.content || "",
 
-        time:
-          row.created_at
-            ? new Date(
-                row.created_at
-              ).toLocaleTimeString(
-                [],
-                {
-                  hour: "2-digit",
-                  minute: "2-digit"
-                }
-              )
-            : ""
+            time:
+              row.created_at
+                ? new Date(
+                    row.created_at
+                  ).toLocaleTimeString(
+                    [],
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    }
+                  )
+                : ""
 
-      }));
+          })
+        );
 
 
     saveLocal();
@@ -659,11 +1202,10 @@ async function loadConversation(userId) {
     renderMessages();
 
   }
-
   catch (error) {
 
     console.error(
-      "Conversation error:",
+      "Content conversation error:",
       error
     );
 
@@ -681,12 +1223,15 @@ function renderMessages() {
   const box =
     $("#messages");
 
-  if (!box) return;
+  if (!box) {
+    return;
+  }
 
 
   if (!state.selected) {
 
     box.innerHTML = `
+
       <div class="welcome">
 
         <div class="welcome-icon">
@@ -706,6 +1251,7 @@ function renderMessages() {
         </small>
 
       </div>
+
     `;
 
     return;
@@ -722,6 +1268,7 @@ function renderMessages() {
   if (!list.length) {
 
     box.innerHTML = `
+
       <div class="welcome">
 
         <div class="welcome-icon">
@@ -737,6 +1284,7 @@ function renderMessages() {
         </p>
 
       </div>
+
     `;
 
     return;
@@ -745,23 +1293,33 @@ function renderMessages() {
 
 
   box.innerHTML =
-    list.map(message => `
+    list
+      .map(
+        message => `
 
-      <div class="msg ${
-        message.me ? "me" : ""
-      }">
+          <div class="msg ${
+            message.me
+              ? "me"
+              : ""
+          }">
 
-        ${escapeHtml(message.text)}
+            ${escapeHtml(
+              message.text
+            )}
 
-        <div class="meta">
-          ${escapeHtml(
-            message.time || ""
-          )}
-        </div>
+            <div class="meta">
 
-      </div>
+              ${escapeHtml(
+                message.time || ""
+              )}
 
-    `).join("");
+            </div>
+
+          </div>
+
+        `
+      )
+      .join("");
 
 
   box.scrollTop =
@@ -779,14 +1337,20 @@ async function sendMessage() {
   const input =
     $("#input");
 
-  if (!input) return;
+
+  if (!input) {
+    return;
+  }
 
 
   const text =
     input.value.trim();
 
 
-  if (!text) return;
+  if (!text) {
+    return;
+  }
+
 
   if (!state.selected) {
 
@@ -802,7 +1366,7 @@ async function sendMessage() {
   if (!state.currentUser) {
 
     alert(
-      "Your chat session is not ready yet."
+      "Your Q1 Chat session is not ready yet."
     );
 
     return;
@@ -836,24 +1400,20 @@ async function sendMessage() {
     state.selected;
 
 
-  /* Optimistic UI */
+  const time =
+    getCurrentTime();
+
+
+  /*
+    Optimistic UI
+  */
 
   if (!state.messages[receiverId]) {
 
-    state.messages[receiverId] = [];
+    state.messages[receiverId] =
+      [];
 
   }
-
-
-  const time =
-    new Date()
-      .toLocaleTimeString(
-        [],
-        {
-          hour: "2-digit",
-          minute: "2-digit"
-        }
-      );
 
 
   state.messages[receiverId].push({
@@ -869,11 +1429,13 @@ async function sendMessage() {
 
   input.value = "";
 
-  input.style.height = "auto";
+  input.style.height =
+    "auto";
 
 
   const counter =
     $("#charCount");
+
 
   if (counter) {
 
@@ -888,7 +1450,36 @@ async function sendMessage() {
   renderMessages();
 
 
-  /* Save to Supabase */
+  /*
+    Save to Supabase
+  */
+
+  await saveMessageToSupabase(
+    receiverId,
+    text
+  );
+
+}
+
+
+/* =========================================================
+   SAVE MESSAGE — TEXT COLUMN
+   ========================================================= */
+
+async function saveMessageToSupabase(
+  receiverId,
+  text
+) {
+
+  if (
+    !supabaseClient ||
+    !state.currentUser
+  ) {
+
+    return;
+
+  }
+
 
   try {
 
@@ -905,22 +1496,43 @@ async function sendMessage() {
           receiver_id:
             receiverId,
 
-          text: text
+          text:
+            text
 
         });
 
 
-    if (error) {
+    if (!error) {
+      return;
+    }
 
-      console.warn(
-        "Message was not saved:",
-        error.message
+
+    /*
+      If `text` does not exist,
+      retry using `content`.
+    */
+
+    if (
+      /column.*text.*does not exist/i
+        .test(error.message)
+    ) {
+
+      await saveMessageUsingContent(
+        receiverId,
+        text
       );
+
+      return;
 
     }
 
-  }
 
+    console.warn(
+      "Message was not saved:",
+      error.message
+    );
+
+  }
   catch (error) {
 
     console.error(
@@ -934,7 +1546,59 @@ async function sendMessage() {
 
 
 /* =========================================================
-   SETTINGS
+   SAVE MESSAGE — CONTENT FALLBACK
+   ========================================================= */
+
+async function saveMessageUsingContent(
+  receiverId,
+  text
+) {
+
+  try {
+
+    const {
+      error
+    } =
+      await supabaseClient
+        .from("messages")
+        .insert({
+
+          sender_id:
+            state.currentUser.id,
+
+          receiver_id:
+            receiverId,
+
+          content:
+            text
+
+        });
+
+
+    if (error) {
+
+      console.warn(
+        "Message content fallback failed:",
+        error.message
+      );
+
+    }
+
+  }
+  catch (error) {
+
+    console.error(
+      "Content message error:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   SETTINGS — OPEN
    ========================================================= */
 
 function openSettings() {
@@ -942,37 +1606,99 @@ function openSettings() {
   const dialog =
     $("#settings");
 
-  if (!dialog) return;
+  if (!dialog) {
+    return;
+  }
 
 
-  $("#displayName").value =
-    state.settings.name || "You";
+  const displayName =
+    $("#displayName");
 
-  $("#gender").value =
-    state.settings.gender || "other";
+  const gender =
+    $("#gender");
 
-  $("#age").value =
-    state.settings.age || "13-17";
+  const age =
+    $("#age");
 
 
-  dialog.showModal();
+  if (displayName) {
+
+    displayName.value =
+      state.settings.name ||
+      "You";
+
+  }
+
+
+  if (gender) {
+
+    gender.value =
+      state.settings.gender ||
+      "other";
+
+  }
+
+
+  if (age) {
+
+    age.value =
+      state.settings.age ||
+      "13-17";
+
+  }
+
+
+  if (
+    typeof dialog.showModal ===
+    "function"
+  ) {
+
+    dialog.showModal();
+
+  }
+  else {
+
+    dialog.setAttribute(
+      "open",
+      ""
+    );
+
+  }
 
 }
 
 
+/* =========================================================
+   SETTINGS — SAVE
+   ========================================================= */
+
 async function saveSettings() {
+
+  const displayName =
+    $("#displayName");
+
+  const gender =
+    $("#gender");
+
+  const age =
+    $("#age");
+
 
   state.settings = {
 
     name:
-      $("#displayName").value.trim()
-      || "You",
+      displayName?.value
+        ?.trim()
+        ?.slice(0, 40)
+        || "You",
 
     gender:
-      $("#gender").value,
+      gender?.value ||
+      "other",
 
     age:
-      $("#age").value
+      age?.value ||
+      "13-17"
 
   };
 
@@ -982,61 +1708,21 @@ async function saveSettings() {
 
   if (state.currentUser) {
 
-    try {
-
-      const {
-        error
-      } =
-        await supabaseClient
-          .from("profiles")
-          .upsert({
-
-            id:
-              state.currentUser.id,
-
-            username:
-              state.settings.name
-                .toLowerCase()
-                .replace(
-                  /[^a-z0-9_]/g,
-                  "_"
-                )
-                .slice(0, 30)
-                || "q1_user",
-
-            display_name:
-              state.settings.name,
-
-            gender:
-              state.settings.gender
-
-          });
-
-
-      if (error) {
-
-        console.warn(
-          "Profile save failed:",
-          error.message
-        );
-
-      }
-
-    }
-
-    catch (error) {
-
-      console.error(
-        "Profile error:",
-        error
-      );
-
-    }
+    await saveOwnProfile();
 
   }
 
 
-  $("#settings").close();
+  const dialog =
+    $("#settings");
+
+
+  if (dialog?.open) {
+
+    dialog.close();
+
+  }
+
 
   await loadUsers();
 
@@ -1052,50 +1738,66 @@ function showBlockedUsers() {
   const list =
     $("#blockedList");
 
-  if (!list) return;
+  const dialog =
+    $("#blockedDialog");
+
+
+  if (!list || !dialog) {
+    return;
+  }
 
 
   if (!state.blocked.length) {
 
-    list.innerHTML =
-      "<p>No blocked users.</p>";
+    list.innerHTML = `
+
+      <p>
+        No blocked users.
+      </p>
+
+    `;
 
   }
-
   else {
 
     list.innerHTML =
       state.blocked
-        .map(id => {
+        .map(
+          id => {
 
-          const user =
-            getUser(id);
+            const user =
+              getUser(id);
 
-          return `
 
-            <div class="blockedrow">
+            return `
 
-              <span>
-                ${
-                  escapeHtml(
+              <div class="blockedrow">
+
+                <span>
+
+                  ${escapeHtml(
                     user?.name ||
                     "User"
-                  )
-                }
-              </span>
+                  )}
 
-              <button
-                type="button"
-                data-unblock="${escapeHtml(id)}"
-              >
-                Unblock
-              </button>
+                </span>
 
-            </div>
 
-          `;
+                <button
+                  type="button"
+                  data-unblock="${escapeHtml(
+                    id
+                  )}"
+                >
+                  Unblock
+                </button>
 
-        })
+              </div>
+
+            `;
+
+          }
+        )
         .join("");
 
 
@@ -1103,31 +1805,48 @@ function showBlockedUsers() {
       .querySelectorAll(
         "[data-unblock]"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.onclick = () => {
+          button.addEventListener(
+            "click",
+            () => {
 
-          unblock(
-            button.dataset.unblock
+              unblock(
+                button.dataset.unblock
+              );
+
+            }
           );
 
-        };
-
-      });
+        }
+      );
 
   }
 
 
-  $("#blockedDialog").showModal();
+  if (
+    typeof dialog.showModal ===
+    "function"
+  ) {
+
+    dialog.showModal();
+
+  }
 
 }
 
 
-function unblock(id) {
+/* =========================================================
+   UNBLOCK
+   ========================================================= */
+
+async function unblock(id) {
 
   state.blocked =
     state.blocked.filter(
-      item => item !== id
+      item =>
+        item !== id
     );
 
 
@@ -1135,13 +1854,63 @@ function unblock(id) {
 
   renderUsers();
 
+
+  /*
+    Remove block from Supabase.
+  */
+
+  if (
+    supabaseClient &&
+    state.currentUser
+  ) {
+
+    try {
+
+      const {
+        error
+      } =
+        await supabaseClient
+          .from("blocks")
+          .delete()
+          .eq(
+            "blocker_id",
+            state.currentUser.id
+          )
+          .eq(
+            "blocked_id",
+            id
+          );
+
+
+      if (error) {
+
+        console.warn(
+          "Supabase unblock failed:",
+          error.message
+        );
+
+      }
+
+    }
+    catch (error) {
+
+      console.warn(
+        "Unblock error:",
+        error
+      );
+
+    }
+
+  }
+
+
   showBlockedUsers();
 
 }
 
 
 /* =========================================================
-   BLOCK USER
+   BLOCK CURRENT USER
    ========================================================= */
 
 async function blockCurrentUser() {
@@ -1158,9 +1927,14 @@ async function blockCurrentUser() {
 
 
   const user =
-    getUser(state.selected);
+    getUser(
+      state.selected
+    );
 
-  if (!user) return;
+
+  if (!user) {
+    return;
+  }
 
 
   const confirmed =
@@ -1169,7 +1943,9 @@ async function blockCurrentUser() {
     );
 
 
-  if (!confirmed) return;
+  if (!confirmed) {
+    return;
+  }
 
 
   if (
@@ -1185,9 +1961,17 @@ async function blockCurrentUser() {
   }
 
 
-  /* Save block to Supabase */
+  saveLocal();
 
-  if (state.currentUser) {
+
+  /*
+    Save block in Supabase.
+  */
+
+  if (
+    supabaseClient &&
+    state.currentUser
+  ) {
 
     try {
 
@@ -1210,14 +1994,13 @@ async function blockCurrentUser() {
       if (error) {
 
         console.warn(
-          "Block was not saved:",
+          "Block was not saved to Supabase:",
           error.message
         );
 
       }
 
     }
-
     catch (error) {
 
       console.warn(
@@ -1230,30 +2013,86 @@ async function blockCurrentUser() {
   }
 
 
-  state.selected = null;
+  /*
+    Close current chat.
+  */
+
+  state.selected =
+    null;
 
 
-  $("#input").disabled = true;
+  const input =
+    $("#input");
 
-  $("#send").disabled = true;
+  const send =
+    $("#send");
 
-  $("#block").disabled = true;
+  const block =
+    $("#block");
 
-  $("#report").disabled = true;
+  const report =
+    $("#report");
 
 
-  $("#chatName").textContent =
-    "Select a person";
+  if (input) {
+    input.disabled = true;
+    input.value = "";
+  }
 
-  $("#status").textContent =
-    "Choose a chat";
+  if (send) {
+    send.disabled = true;
+  }
+
+  if (block) {
+    block.disabled = true;
+  }
+
+  if (report) {
+    report.disabled = true;
+  }
+
+
+  const chatName =
+    $("#chatName");
+
+  if (chatName) {
+
+    chatName.textContent =
+      "Select a person";
+
+  }
+
+
+  const status =
+    $("#status");
+
+  if (status) {
+
+    status.textContent =
+      "Choose a chat";
+
+  }
 
 
   const avatar =
     $("#chatAvatar");
 
   if (avatar) {
-    avatar.textContent = "?";
+
+    avatar.textContent =
+      "?";
+
+  }
+
+
+  const counter =
+    $("#charCount");
+
+  if (counter) {
+
+    counter.textContent =
+      "0/2000";
+
   }
 
 
@@ -1283,160 +2122,253 @@ function reportCurrentUser() {
   }
 
 
+  const user =
+    getUser(
+      state.selected
+    );
+
+
+  if (!user) {
+    return;
+  }
+
+
+  /*
+    For now report is handled locally.
+    A real moderation/report table can be
+    connected later.
+  */
+
   alert(
-    "Report submitted for moderation."
+    `Report submitted for ${user.name}.`
   );
 
 }
 
 
 /* =========================================================
-   EVENT LISTENERS
+   FILTER BUTTONS
    ========================================================= */
 
-$("#send").addEventListener(
-  "click",
-  sendMessage
-);
+function setupFilters() {
+
+  document
+    .querySelectorAll(
+      "nav button[data-filter]"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            document
+              .querySelectorAll(
+                "nav button[data-filter]"
+              )
+              .forEach(
+                item =>
+                  item.classList.remove(
+                    "active"
+                  )
+              );
 
 
-$("#input").addEventListener(
-  "keydown",
-  event => {
-
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-
-      event.preventDefault();
-
-      sendMessage();
-
-    }
-
-  }
-);
-
-
-$("#search").addEventListener(
-  "input",
-  renderUsers
-);
-
-
-document
-  .querySelectorAll("nav button")
-  .forEach(button => {
-
-    button.addEventListener(
-      "click",
-      () => {
-
-        document
-          .querySelectorAll("nav button")
-          .forEach(item =>
-            item.classList.remove(
+            button.classList.add(
               "active"
-            )
-          );
+            );
 
 
-        button.classList.add(
-          "active"
+            state.filter =
+              button.dataset.filter ||
+              "online";
+
+
+            renderUsers();
+
+          }
         );
-
-
-        state.filter =
-          button.dataset.filter;
-
-
-        renderUsers();
 
       }
     );
 
-  });
-
-
-$("#settingsBtn").addEventListener(
-  "click",
-  openSettings
-);
-
-
-$("#save").addEventListener(
-  "click",
-  saveSettings
-);
-
-
-$("#blocked").addEventListener(
-  "click",
-  showBlockedUsers
-);
-
-
-$("#block").addEventListener(
-  "click",
-  blockCurrentUser
-);
-
-
-$("#report").addEventListener(
-  "click",
-  reportCurrentUser
-);
+}
 
 
 /* =========================================================
-   CHARACTER COUNTER
+   SEARCH
    ========================================================= */
 
-$("#input").addEventListener(
-  "input",
-  () => {
+function setupSearch() {
 
-    const counter =
-      $("#charCount");
-
-    if (counter) {
-
-      counter.textContent =
-        `${$("#input").value.length}/2000`;
-
-    }
+  const search =
+    $("#search");
 
 
-    $("#input").style.height =
-      "auto";
-
-    $("#input").style.height =
-      Math.min(
-        $("#input").scrollHeight,
-        150
-      ) + "px";
-
+  if (!search) {
+    return;
   }
-);
+
+
+  search.addEventListener(
+    "input",
+    renderUsers
+  );
+
+}
 
 
 /* =========================================================
-   AUTH STATE
+   MESSAGE INPUT
    ========================================================= */
 
-supabaseClient.auth.onAuthStateChange(
-  (_event, session) => {
+function setupMessageInput() {
 
-    if (session?.user) {
+  const input =
+    $("#input");
 
-      state.currentUser =
-        session.user;
+
+  if (!input) {
+    return;
+  }
+
+
+  input.addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+
+        event.preventDefault();
+
+        sendMessage();
+
+      }
 
     }
+  );
+
+
+  input.addEventListener(
+    "input",
+    () => {
+
+      const counter =
+        $("#charCount");
+
+
+      if (counter) {
+
+        counter.textContent =
+          `${input.value.length}/2000`;
+
+      }
+
+
+      input.style.height =
+        "auto";
+
+
+      input.style.height =
+        Math.min(
+          input.scrollHeight,
+          150
+        ) + "px";
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   BUTTON EVENTS
+   ========================================================= */
+
+function setupButtons() {
+
+  const send =
+    $("#send");
+
+  if (send) {
+
+    send.addEventListener(
+      "click",
+      sendMessage
+    );
 
   }
-);
+
+
+  const settingsBtn =
+    $("#settingsBtn");
+
+  if (settingsBtn) {
+
+    settingsBtn.addEventListener(
+      "click",
+      openSettings
+    );
+
+  }
+
+
+  const save =
+    $("#save");
+
+  if (save) {
+
+    save.addEventListener(
+      "click",
+      saveSettings
+    );
+
+  }
+
+
+  const blocked =
+    $("#blocked");
+
+  if (blocked) {
+
+    blocked.addEventListener(
+      "click",
+      showBlockedUsers
+    );
+
+  }
+
+
+  const block =
+    $("#block");
+
+  if (block) {
+
+    block.addEventListener(
+      "click",
+      blockCurrentUser
+    );
+
+  }
+
+
+  const report =
+    $("#report");
+
+  if (report) {
+
+    report.addEventListener(
+      "click",
+      reportCurrentUser
+    );
+
+  }
+
+}
 
 
 /* =========================================================
@@ -1445,6 +2377,15 @@ supabaseClient.auth.onAuthStateChange(
 
 async function initQ1Chat() {
 
+  console.log(
+    "Q1 Chat starting..."
+  );
+
+
+  /*
+    Local UI first
+  */
+
   saveLocal();
 
   renderUsers();
@@ -1452,61 +2393,89 @@ async function initQ1Chat() {
   renderMessages();
 
 
+  /*
+    Setup buttons
+  */
+
+  setupFilters();
+
+  setupSearch();
+
+  setupMessageInput();
+
+  setupButtons();
+
+
+  /*
+    Supabase auth
+  */
+
+  if (!supabaseClient) {
+
+    showAppError(
+      "Supabase library is not available."
+    );
+
+    return;
+
+  }
+
+
   const user =
     await ensureUser();
 
 
-  if (!user) return;
+  if (!user) {
 
-
-  /* Create own profile if missing */
-
-  try {
-
-    await supabaseClient
-      .from("profiles")
-      .upsert({
-
-        id:
-          user.id,
-
-        username:
-          (
-            state.settings.name ||
-            "q1_user"
-          )
-            .toLowerCase()
-            .replace(
-              /[^a-z0-9_]/g,
-              "_"
-            )
-            .slice(0, 30),
-
-        display_name:
-          state.settings.name ||
-          "You",
-
-        gender:
-          state.settings.gender ||
-          "other"
-
-      });
+    return;
 
   }
 
-  catch (error) {
 
-    console.warn(
-      "Initial profile creation failed:",
-      error
-    );
+  console.log(
+    "Q1 user authenticated:",
+    user.id
+  );
 
-  }
 
+  /*
+    Create / update own profile
+  */
+
+  await saveOwnProfile();
+
+
+  /*
+    Load all other users
+  */
 
   await loadUsers();
+
+
+  console.log(
+    "Q1 Chat ready."
+  );
 
 }
 
 
-initQ1Chat();
+/* =========================================================
+   START APP
+   ========================================================= */
+
+if (
+  document.readyState ===
+  "loading"
+) {
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    initQ1Chat
+  );
+
+}
+else {
+
+  initQ1Chat();
+
+}
