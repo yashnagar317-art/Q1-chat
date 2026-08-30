@@ -1,6 +1,6 @@
 /* =========================================================
    Q1 CHAT — APP.JS
-   Supabase Auth + Profile Sync + Local Chat + Safety
+   Supabase Auth + Profiles + Messages + Safety
    ========================================================= */
 
 
@@ -14,6 +14,11 @@ const SUPABASE_URL =
 const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_n8GM1QZs-3hM90160r--2A_sGrkvxtY";
 
+
+/* =========================
+   SUPABASE CLIENT
+   ========================= */
+
 const supabaseClient =
   window.supabase.createClient(
     SUPABASE_URL,
@@ -22,51 +27,7 @@ const supabaseClient =
 
 
 /* =========================
-   DEMO USERS
-   ========================= */
-
-const users = [
-  {
-    id: "rahul",
-    name: "Rahul",
-    gender: "boy",
-    online: true,
-    friends: true,
-    unread: 2,
-    last: "Hey! How are you?"
-  },
-  {
-    id: "priya",
-    name: "Priya",
-    gender: "girl",
-    online: true,
-    friends: true,
-    unread: 0,
-    last: "See you later 👋"
-  },
-  {
-    id: "aman",
-    name: "Aman",
-    gender: "boy",
-    online: false,
-    friends: false,
-    unread: 1,
-    last: "That project looks cool."
-  },
-  {
-    id: "neha",
-    name: "Neha",
-    gender: "girl",
-    online: true,
-    friends: true,
-    unread: 0,
-    last: "Thanks!"
-  }
-];
-
-
-/* =========================
-   STATE
+   APP STATE
    ========================= */
 
 const state = {
@@ -83,22 +44,46 @@ const state = {
 
   settings: JSON.parse(
     localStorage.getItem("q1settings") ||
-    '{"name":"You","gender":"boy","age":"13-17"}'
+    '{"name":"You","gender":"other","age":"13-17"}'
   ),
 
-  currentUser: null
+  currentUser: null,
+  users: []
 };
 
 
 /* =========================
-   SHORTCUTS
+   SHORTCUT
    ========================= */
 
 const $ = selector =>
   document.querySelector(selector);
 
-const getUser = id =>
-  users.find(user => user.id === id);
+
+/* =========================
+   HTML ESCAPE
+   ========================= */
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/[&<>'"]/g, character => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "'": "&#39;",
+      '"': "&quot;"
+    })[character]);
+}
+
+
+/* =========================
+   UUID CHECK
+   ========================= */
+
+function isUUID(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(String(value || ""));
+}
 
 
 /* =========================
@@ -124,11 +109,26 @@ function saveLocal() {
 
 
 /* =========================
+   SAFETY FILTER
+   ========================= */
+
+function blockedText(text) {
+  return (
+    /https?:\/\/\S+/i.test(text) ||
+    /www\.\S+/i.test(text) ||
+    /\b(instagram|snapchat|onlyfans|telegram|discord)\b/i.test(text) ||
+    /\b(dm me|link in bio|follow me|add me)\b/i.test(text)
+  );
+}
+
+
+/* =========================
    AUTH
    ========================= */
 
 async function ensureUser() {
   try {
+
     const {
       data: sessionData,
       error: sessionError
@@ -141,7 +141,11 @@ async function ensureUser() {
       );
     }
 
+
+    /* Existing session */
+
     if (sessionData?.session?.user) {
+
       state.currentUser =
         sessionData.session.user;
 
@@ -149,23 +153,26 @@ async function ensureUser() {
     }
 
 
-    /* Anonymous login */
+    /* Create anonymous user */
 
     const {
       data,
       error
     } =
-      await supabaseClient.auth
-        .signInAnonymously();
+      await supabaseClient.auth.signInAnonymously();
 
     if (error) {
+
       console.error(
-        "Anonymous login failed:",
+        "Anonymous sign-in failed:",
         error.message
       );
 
+      showAuthError(error.message);
+
       return null;
     }
+
 
     state.currentUser =
       data.user;
@@ -185,64 +192,111 @@ async function ensureUser() {
 
 
 /* =========================
+   AUTH ERROR
+   ========================= */
+
+function showAuthError(message) {
+
+  console.warn(
+    "Q1 Chat authentication:",
+    message
+  );
+
+}
+
+
+/* =========================
    CREATE / UPDATE PROFILE
    ========================= */
 
-async function syncProfile() {
+async function saveProfileToSupabase() {
 
   if (!state.currentUser) {
-    return;
+    return false;
   }
 
   try {
 
+    /*
+      IMPORTANT:
+      Your profiles table currently has:
+
+      id
+      username
+      display_name
+      gender
+      created_at
+
+      There is NO age_group column.
+    */
+
+    const username =
+      "user_" +
+      state.currentUser.id
+        .replace(/-/g, "")
+        .slice(0, 16);
+
+
     const profile = {
-      id: state.currentUser.id,
-      display_name: state.settings.name,
-      gender: state.settings.gender,
-      age_group: state.settings.age
+
+      id:
+        state.currentUser.id,
+
+      username:
+        username,
+
+      display_name:
+        state.settings.name || "You",
+
+      gender:
+        state.settings.gender || "other"
+
     };
+
 
     const {
       error
-    } = await supabaseClient
-      .from("profiles")
-      .upsert(
-        profile,
-        {
-          onConflict: "id"
-        }
-      );
+    } =
+      await supabaseClient
+        .from("profiles")
+        .upsert(
+          profile,
+          {
+            onConflict: "id"
+          }
+        );
+
 
     if (error) {
 
-      console.warn(
-        "Profile sync failed:",
+      console.error(
+        "Profile save failed:",
         error.message
       );
 
-      return;
+      return false;
     }
 
-    console.log(
-      "Q1 Chat profile synced."
-    );
+
+    return true;
 
   } catch (error) {
 
-    console.warn(
-      "Profile sync error:",
+    console.error(
+      "Profile error:",
       error
     );
+
+    return false;
   }
 }
 
 
 /* =========================
-   LOAD PROFILE
+   LOAD OWN PROFILE
    ========================= */
 
-async function loadProfile() {
+async function loadOwnProfile() {
 
   if (!state.currentUser) {
     return;
@@ -253,58 +307,168 @@ async function loadProfile() {
     const {
       data,
       error
-    } = await supabaseClient
-      .from("profiles")
-      .select(
-        "id,display_name,gender,age_group"
-      )
-      .eq(
-        "id",
-        state.currentUser.id
-      )
-      .maybeSingle();
+    } =
+      await supabaseClient
+        .from("profiles")
+        .select(
+          "id,username,display_name,gender,created_at"
+        )
+        .eq(
+          "id",
+          state.currentUser.id
+        )
+        .maybeSingle();
+
 
     if (error) {
 
       console.warn(
-        "Profile load failed:",
+        "Own profile load failed:",
         error.message
       );
 
       return;
     }
 
+
     if (!data) {
 
-      await syncProfile();
+      await saveProfileToSupabase();
 
       return;
     }
 
+
     if (data.display_name) {
+
       state.settings.name =
         data.display_name;
     }
 
+
     if (data.gender) {
+
       state.settings.gender =
         data.gender;
     }
 
-    if (data.age_group) {
-      state.settings.age =
-        data.age_group;
-    }
 
     saveLocal();
 
   } catch (error) {
 
-    console.warn(
-      "Profile load error:",
+    console.error(
+      "Own profile error:",
       error
     );
   }
+}
+
+
+/* =========================
+   LOAD REAL USERS
+   ========================= */
+
+async function loadUsersFromSupabase() {
+
+  if (!state.currentUser) {
+    return;
+  }
+
+
+  try {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseClient
+        .from("profiles")
+        .select(
+          "id,username,display_name,gender,created_at"
+        )
+        .neq(
+          "id",
+          state.currentUser.id
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        );
+
+
+    if (error) {
+
+      console.error(
+        "Users could not be loaded:",
+        error.message
+      );
+
+      return;
+    }
+
+
+    state.users =
+      (data || [])
+        .filter(user =>
+          isUUID(user.id)
+        )
+        .map(user => ({
+
+          id:
+            user.id,
+
+          name:
+            user.display_name ||
+            user.username ||
+            "Q1 User",
+
+          gender:
+            user.gender || "other",
+
+          /*
+            We don't have a real online-status
+            table yet, so don't fake it.
+          */
+
+          online:
+            false,
+
+          friends:
+            false,
+
+          unread:
+            0,
+
+          last:
+            ""
+
+        }));
+
+
+    renderUsers();
+
+  } catch (error) {
+
+    console.error(
+      "Users loading error:",
+      error
+    );
+  }
+}
+
+
+/* =========================
+   GET USER
+   ========================= */
+
+function getUser(id) {
+
+  return state.users.find(
+    user => user.id === id
+  );
 }
 
 
@@ -314,32 +478,35 @@ async function loadProfile() {
 
 function renderUsers() {
 
-  const search =
-    $("#search");
-
   const usersBox =
     $("#users");
 
-  if (!search || !usersBox) {
+  const search =
+    $("#search");
+
+
+  if (!usersBox || !search) {
     return;
   }
+
 
   const query =
     search.value
       .trim()
       .toLowerCase();
 
+
   let list =
-    users
-      .filter(user =>
-        !state.blocked.includes(
-          user.id
-        )
+    state.users
+      .filter(
+        user =>
+          !state.blocked.includes(user.id)
       )
-      .filter(user =>
-        user.name
-          .toLowerCase()
-          .includes(query)
+      .filter(
+        user =>
+          user.name
+            .toLowerCase()
+            .includes(query)
       );
 
 
@@ -349,33 +516,53 @@ function renderUsers() {
       list.filter(
         user => user.online
       );
+  }
 
-  } else if (
-    state.filter === "unread"
-  ) {
+
+  if (state.filter === "unread") {
 
     list =
       list.filter(
         user => user.unread > 0
       );
+  }
 
-  } else if (
-    state.filter === "friends"
-  ) {
+
+  if (state.filter === "friends") {
 
     list =
       list.filter(
         user => user.friends
       );
+  }
 
-  } else if (
-    state.filter === "recent"
-  ) {
+
+  if (state.filter === "recent") {
 
     list =
       list.filter(
-        user => Boolean(user.last)
+        user => user.last
       );
+  }
+
+
+  if (!list.length) {
+
+    usersBox.innerHTML = `
+      <div style="
+        padding:20px;
+        text-align:center;
+        color:#777;
+      ">
+        <div style="font-size:28px;">👥</div>
+        <strong>No users yet</strong>
+        <p style="margin-top:6px;font-size:13px;">
+          Other Q1 Chat users will appear here.
+        </p>
+      </div>
+    `;
+
+    return;
   }
 
 
@@ -393,12 +580,13 @@ function renderUsers() {
       >
 
         <span
-          class="avatar ${user.gender}"
+          class="avatar ${escapeHtml(user.gender)}"
         >
           ${escapeHtml(
-            user.name.charAt(0)
+            user.name.charAt(0).toUpperCase()
           )}
         </span>
+
 
         <span class="info">
 
@@ -412,13 +600,17 @@ function renderUsers() {
             ></i>
           </b>
 
+
           <span class="preview">
-            ${escapeHtml(
-              user.last || ""
-            )}
+            ${
+              escapeHtml(
+                user.last || "Start a conversation"
+              )
+            }
           </span>
 
         </span>
+
 
         ${
           user.unread
@@ -429,13 +621,6 @@ function renderUsers() {
       </button>
 
     `).join("");
-
-
-  if (!list.length) {
-
-    usersBox.innerHTML =
-      '<p style="padding:15px;color:#777">No users found.</p>';
-  }
 }
 
 
@@ -448,52 +633,43 @@ async function selectUser(id) {
   const user =
     getUser(id);
 
+
   if (!user) {
     return;
   }
 
-  if (
-    state.blocked.includes(id)
-  ) {
+
+  if (state.blocked.includes(id)) {
     return;
   }
 
+
   state.selected =
     id;
+
 
   user.unread =
     0;
 
 
   if (!state.messages[id]) {
-
-    state.messages[id] = [
-      {
-        me: false,
-        text:
-          `Hi! I'm ${user.name}. 👋`,
-        time: ""
-      }
-    ];
+    state.messages[id] = [];
   }
-
-
-  saveLocal();
 
 
   $("#chatName").textContent =
     user.name;
 
+
   $("#status").innerHTML = `
-    <span
-      class="dot ${
-        user.online ? "on" : ""
-      }"
-    ></span>
+    <span class="dot ${
+      user.online ? "on" : ""
+    }"></span>
+
     ${
       user.online
         ? "Online"
-        : "Offline"
+        : "Available"
     }
   `;
 
@@ -509,13 +685,100 @@ async function selectUser(id) {
   renderMessages();
 
 
-  /*
-    Real Supabase message loading
-    will be enabled after the
-    messages table UUID structure
-    is confirmed.
-  */
+  await loadMessagesFromSupabase(id);
+}
 
+
+/* =========================
+   LOAD MESSAGES
+   ========================= */
+
+async function loadMessagesFromSupabase(userId) {
+
+  if (!state.currentUser) {
+    return;
+  }
+
+
+  if (!isUUID(userId)) {
+
+    console.warn(
+      "Invalid receiver UUID."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseClient
+        .from("messages")
+        .select(
+          "id,sender_id,receiver_id,text,created_at"
+        )
+        .or(
+          `and(sender_id.eq.${state.currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${state.currentUser.id})`
+        )
+        .order(
+          "created_at",
+          {
+            ascending: true
+          }
+        );
+
+
+    if (error) {
+
+      console.error(
+        "Messages load failed:",
+        error.message
+      );
+
+      return;
+    }
+
+
+    state.messages[userId] =
+      (data || []).map(row => ({
+
+        me:
+          row.sender_id ===
+          state.currentUser.id,
+
+        text:
+          row.text || "",
+
+        time:
+          row.created_at
+            ? new Date(
+                row.created_at
+              ).toLocaleTimeString(
+                [],
+                {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                }
+              )
+            : ""
+
+      }));
+
+
+    saveLocal();
+    renderMessages();
+
+  } catch (error) {
+
+    console.error(
+      "Message loading error:",
+      error
+    );
+  }
 }
 
 
@@ -528,6 +791,7 @@ function renderMessages() {
   const box =
     $("#messages");
 
+
   if (!box) {
     return;
   }
@@ -536,7 +800,6 @@ function renderMessages() {
   if (!state.selected) {
 
     box.innerHTML = `
-
       <div class="welcome">
 
         💬
@@ -546,12 +809,10 @@ function renderMessages() {
         </h2>
 
         <p>
-          Select a person to start
-          a conversation.
+          Select a person to start a conversation.
         </p>
 
       </div>
-
     `;
 
     return;
@@ -559,9 +820,29 @@ function renderMessages() {
 
 
   const list =
-    state.messages[
-      state.selected
-    ] || [];
+    state.messages[state.selected] || [];
+
+
+  if (!list.length) {
+
+    box.innerHTML = `
+      <div class="welcome">
+
+        👋
+
+        <h2>
+          Start the conversation
+        </h2>
+
+        <p>
+          Send a friendly message to begin.
+        </p>
+
+      </div>
+    `;
+
+    return;
+  }
 
 
   box.innerHTML =
@@ -573,9 +854,7 @@ function renderMessages() {
         }"
       >
 
-        ${escapeHtml(
-          message.text
-        )}
+        ${escapeHtml(message.text)}
 
         <div class="meta">
           ${escapeHtml(
@@ -602,25 +881,22 @@ async function sendMessage() {
   const input =
     $("#input");
 
-  if (!input) {
+
+  if (!input || !state.selected) {
     return;
   }
+
 
   const text =
     input.value.trim();
 
 
-  if (
-    !text ||
-    !state.selected
-  ) {
+  if (!text) {
     return;
   }
 
 
-  if (
-    blockedText(text)
-  ) {
+  if (blockedText(text)) {
 
     alert(
       "This message was blocked by Q1 Chat safety filters."
@@ -630,32 +906,48 @@ async function sendMessage() {
   }
 
 
-  const time =
-    new Date()
-      .toLocaleTimeString(
-        [],
-        {
-          hour: "2-digit",
-          minute: "2-digit"
-        }
-      );
+  if (!state.currentUser) {
 
+    alert(
+      "Please wait for Q1 Chat to connect."
+    );
 
-  if (
-    !state.messages[
-      state.selected
-    ]
-  ) {
-
-    state.messages[
-      state.selected
-    ] = [];
+    return;
   }
 
 
-  state.messages[
-    state.selected
-  ].push({
+  if (!isUUID(state.selected)) {
+
+    alert(
+      "This user is not connected to a valid Q1 account yet."
+    );
+
+    return;
+  }
+
+
+  const now =
+    new Date();
+
+
+  const time =
+    now.toLocaleTimeString(
+      [],
+      {
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
+
+
+  /* Optimistic UI */
+
+  if (!state.messages[state.selected]) {
+    state.messages[state.selected] = [];
+  }
+
+
+  state.messages[state.selected].push({
 
     me: true,
 
@@ -666,145 +958,55 @@ async function sendMessage() {
   });
 
 
-  input.value = "";
+  input.value =
+    "";
+
 
   saveLocal();
-
   renderMessages();
 
 
-  /*
-    Do not insert into Supabase
-    yet because demo user IDs are
-    not Auth UUIDs.
-  */
+  /* Save to Supabase */
 
-}
+  const {
+    error
+  } =
+    await supabaseClient
+      .from("messages")
+      .insert({
 
+        sender_id:
+          state.currentUser.id,
 
-/* =========================
-   SAFETY FILTER
-   ========================= */
+        receiver_id:
+          state.selected,
 
-function blockedText(text) {
+        /*
+          IMPORTANT:
+          Your table column is "text",
+          NOT "content".
+        */
 
-  return (
+        text:
+          text
 
-    /https?:\/\/\S+/i
-      .test(text) ||
-
-    /www\.\S+/i
-      .test(text) ||
-
-    /\b(
-      instagram|
-      snapchat|
-      onlyfans|
-      telegram|
-      discord
-    )\b/ix
-      .test(text) ||
-
-    /\b(
-      dm me|
-      link in bio|
-      follow me|
-      add me
-    )\b/ix
-      .test(text)
-
-  );
-}
+      });
 
 
-/* =========================
-   ESCAPE HTML
-   ========================= */
+  if (error) {
 
-function escapeHtml(value) {
-
-  return String(value)
-    .replace(
-      /[&<>'"]/g,
-      character => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "'": "&#39;",
-        '"': "&quot;"
-      })[character]
+    console.error(
+      "Message was not saved:",
+      error.message
     );
+
+
+    alert(
+      "Message could not be saved. Check your Supabase policies."
+    );
+
+  }
 }
-
-
-/* =========================
-   SEND BUTTON
-   ========================= */
-
-$("#send").onclick =
-  sendMessage;
-
-
-/* =========================
-   ENTER TO SEND
-   ========================= */
-
-$("#input").onkeydown =
-  event => {
-
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-
-      event.preventDefault();
-
-      sendMessage();
-    }
-  };
-
-
-/* =========================
-   NAVIGATION
-   ========================= */
-
-document
-  .querySelectorAll(
-    "nav button"
-  )
-  .forEach(button => {
-
-    button.onclick = () => {
-
-      document
-        .querySelectorAll(
-          "nav button"
-        )
-        .forEach(item =>
-          item.classList.remove(
-            "active"
-          )
-        );
-
-      button.classList.add(
-        "active"
-      );
-
-      state.filter =
-        button.dataset.filter;
-
-      renderUsers();
-    };
-
-  });
-
-
-/* =========================
-   SEARCH
-   ========================= */
-
-$("#search").oninput =
-  renderUsers;
 
 
 /* =========================
@@ -815,13 +1017,14 @@ $("#settingsBtn").onclick =
   () => {
 
     $("#displayName").value =
-      state.settings.name;
+      state.settings.name || "You";
 
     $("#gender").value =
-      state.settings.gender;
+      state.settings.gender || "other";
 
     $("#age").value =
-      state.settings.age;
+      state.settings.age || "13-17";
+
 
     $("#settings").showModal();
   };
@@ -839,21 +1042,46 @@ $("#save").onclick =
       name:
         $("#displayName")
           .value
-          .trim() || "You",
+          .trim()
+          .slice(0, 40)
+          || "You",
 
       gender:
         $("#gender").value,
 
+      /*
+        Age is currently local only
+        because your profiles table
+        does not contain age_group.
+      */
+
       age:
         $("#age").value
+
     };
 
 
     saveLocal();
 
-    await syncProfile();
+
+    const saved =
+      await saveProfileToSupabase();
+
+
+    if (!saved) {
+
+      alert(
+        "Settings saved locally, but Supabase profile could not be updated."
+      );
+
+      return;
+    }
+
 
     $("#settings").close();
+
+
+    await loadUsersFromSupabase();
   };
 
 
@@ -867,51 +1095,47 @@ $("#blocked").onclick =
     const list =
       $("#blockedList");
 
-    list.innerHTML =
+
+    const blockedUsers =
       state.blocked
-        .map(id => {
+        .map(id =>
+          getUser(id)
+        )
+        .filter(Boolean);
 
-          const user =
-            getUser(id);
 
-          if (!user) {
-            return "";
-          }
+    if (!blockedUsers.length) {
 
-          return `
+      list.innerHTML =
+        "<p>No blocked users.</p>";
+
+    } else {
+
+      list.innerHTML =
+        blockedUsers
+          .map(user => `
 
             <div class="blockedrow">
 
               <span>
-                ${escapeHtml(
-                  user.name
-                )}
+                ${escapeHtml(user.name)}
               </span>
 
               <button
                 type="button"
-                onclick="unblock('${id}')"
+                onclick="unblock('${user.id}')"
               >
                 Unblock
               </button>
 
             </div>
 
-          `;
-
-        })
-        .join("");
-
-
-    if (!list.innerHTML) {
-
-      list.innerHTML =
-        "<p>No blocked users.</p>";
+          `)
+          .join("");
     }
 
 
-    $("#blockedDialog")
-      .showModal();
+    $("#blockedDialog").showModal();
   };
 
 
@@ -926,13 +1150,14 @@ function unblock(id) {
       item => item !== id
     );
 
-  saveLocal();
 
+  saveLocal();
   renderUsers();
 
 
   const dialog =
     $("#blockedDialog");
+
 
   if (dialog.open) {
     dialog.close();
@@ -941,20 +1166,25 @@ function unblock(id) {
 
 
 /* =========================
-   BLOCK
+   BLOCK USER
    ========================= */
 
 $("#block").onclick =
   () => {
 
     if (!state.selected) {
+
+      alert(
+        "Select a person first."
+      );
+
       return;
     }
 
+
     const user =
-      getUser(
-        state.selected
-      );
+      getUser(state.selected);
+
 
     if (!user) {
       return;
@@ -990,19 +1220,16 @@ $("#block").onclick =
         true;
 
 
-      $("#chatName")
-        .textContent =
+      $("#chatName").textContent =
         "Select a person";
 
-      $("#status")
-        .textContent =
+      $("#status").textContent =
         "Choose a chat";
 
 
       saveLocal();
 
       renderUsers();
-
       renderMessages();
     }
   };
@@ -1024,6 +1251,7 @@ $("#report").onclick =
       return;
     }
 
+
     alert(
       "Report submitted for moderation."
     );
@@ -1031,25 +1259,62 @@ $("#report").onclick =
 
 
 /* =========================
-   AUTH STATE
+   NAVIGATION
    ========================= */
 
-supabaseClient.auth
-  .onAuthStateChange(
-    (_event, session) => {
+document
+  .querySelectorAll("nav button")
+  .forEach(button => {
 
-      if (session?.user) {
+    button.onclick =
+      () => {
 
-        state.currentUser =
-          session.user;
+        document
+          .querySelectorAll("nav button")
+          .forEach(item =>
+            item.classList.remove(
+              "active"
+            )
+          );
 
-        console.log(
-          "Q1 Chat Auth:",
-          session.user.id
+
+        button.classList.add(
+          "active"
         );
-      }
+
+
+        state.filter =
+          button.dataset.filter;
+
+
+        renderUsers();
+      };
+  });
+
+
+/* =========================
+   SEARCH
+   ========================= */
+
+$("#search").oninput =
+  renderUsers;
+
+
+/* =========================
+   AUTH LISTENER
+   ========================= */
+
+supabaseClient.auth.onAuthStateChange(
+  (_event, session) => {
+
+    if (session?.user) {
+
+      state.currentUser =
+        session.user;
     }
-  );
+
+  }
+);
 
 
 /* =========================
@@ -1060,10 +1325,15 @@ async function initQ1Chat() {
 
   saveLocal();
 
-  renderUsers();
 
+  renderUsers();
   renderMessages();
 
+
+  /*
+    1. Get existing session
+    2. Otherwise create anonymous user
+  */
 
   const user =
     await ensureUser();
@@ -1071,28 +1341,36 @@ async function initQ1Chat() {
 
   if (!user) {
 
-    console.warn(
-      "Q1 Chat is running in local mode."
-    );
-
     return;
   }
 
 
-  console.log(
-    "Q1 Chat authenticated:",
-    user.id
-  );
+  /*
+    Create/load own profile
+  */
+
+  await loadOwnProfile();
 
 
-  await loadProfile();
+  /*
+    Load other real Q1 users
+  */
 
-  saveLocal();
+  await loadUsersFromSupabase();
+
+
+  /*
+    Render again after Supabase data
+  */
+
+  renderUsers();
+  renderMessages();
+
 }
 
 
 /* =========================
-   START
+   START APP
    ========================= */
 
 initQ1Chat();
