@@ -2077,12 +2077,12 @@ function scrollMessagesToBottom() {
     return;
   }
 
-  requestAnimationFrame(
-    () => {
-      messagesContainer.scrollTop =
-        messagesContainer.scrollHeight;
-    }
-  );
+  requestAnimationFrame(() => {
+    messagesContainer.scrollTo({
+      top: messagesContainer.scrollHeight,
+      behavior: "smooth"
+    });
+  });
 }
 
 
