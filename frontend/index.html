@@ -2,907 +2,290 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  >
-
-  <meta
-    name="description"
-    content="Q1 Chat — Simple, safe and connected realtime chat."
-  >
-
-  <meta
-    name="theme-color"
-    content="#f5f7fb"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Q1 Chat — Simple, safe and connected.">
   <title>Q1 Chat</title>
-
   <link rel="stylesheet" href="style.css">
-
-  <!-- Supabase JS v2 -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
-    defer
-  ></script>
-
-  <!-- Q1 Chat application -->
-  <script src="app.js" defer></script>
 </head>
 
 <body>
 
-  <!-- =========================================================
-       APP
-       ========================================================= -->
+  <!-- ================= HEADER ================= -->
+  <header class="topbar">
 
-  <div class="app-shell">
+    <div class="brand">
+      <div class="brand-logo">Q1</div>
+      <div class="brand-text">
+        <strong>Q1 Chat</strong>
+        <span>Simple • Safe • Connected</span>
+      </div>
+    </div>
 
-    <!-- =======================================================
-         HEADER
-         ======================================================= -->
-
-    <header class="topbar">
-
-      <div class="brand">
-
-        <div class="brand-mark" aria-hidden="true">
-          Q1
-        </div>
-
-        <div class="brand-copy">
-          <h1>Q1 Chat</h1>
-          <p>Simple • Safe • Connected</p>
-        </div>
-
+    <div class="top-actions">
+      <div id="authStatus" class="connection">
+        <span class="connection-dot"></span>
+        Connecting...
       </div>
 
-      <div class="topbar-actions">
-
-        <div
-          id="authStatus"
-          class="auth-status"
-          aria-live="polite"
-        >
-          <span class="connection-dot"></span>
-          Connecting…
-        </div>
-
-        <button
-          id="settingsBtn"
-          class="icon-button"
-          type="button"
-          aria-label="Open settings"
-          title="Settings"
-        >
-          ⚙️
-        </button>
-
-      </div>
-
-    </header>
-
-
-    <!-- =======================================================
-         FILTER BAR
-         ======================================================= -->
-
-    <nav
-      class="filter-bar"
-      aria-label="People filters"
-    >
-
-      <button
-        class="filter active"
-        type="button"
-        data-filter="online"
-      >
-        🟢 Online
+      <button id="settingsBtn" class="icon-btn" type="button" aria-label="Open settings">
+        ⚙️
+        <span>Settings</span>
       </button>
+    </div>
 
-      <button
-        class="filter"
-        type="button"
-        data-filter="unread"
-      >
-        🔵 Unread
-      </button>
+  </header>
 
-      <button
-        class="filter"
-        type="button"
-        data-filter="recent"
-      >
-        🕘 Recent
-      </button>
 
-      <button
-        class="filter"
-        type="button"
-        data-filter="friends"
-      >
-        ❤️ Friends
-      </button>
+  <!-- ================= FILTERS ================= -->
+  <nav class="filter-bar">
 
-      <span
-        id="userCount"
-        class="user-count"
-        aria-live="polite"
-      >
-        0 people
-      </span>
+    <button class="filter active" data-filter="online" type="button">
+      🟢 Online
+    </button>
 
-    </nav>
+    <button class="filter" data-filter="unread" type="button">
+      🔵 Unread
+    </button>
 
+    <button class="filter" data-filter="recent" type="button">
+      🕘 Recent
+    </button>
 
-    <!-- =======================================================
-         MAIN
-         ======================================================= -->
+    <button class="filter" data-filter="friends" type="button">
+      ❤️ Friends
+    </button>
 
-    <main class="main-layout">
+  </nav>
 
-      <!-- =====================================================
-           SIDEBAR
-           ===================================================== -->
 
-      <aside
-        class="sidebar"
-        aria-label="People"
-      >
+  <!-- ================= APP ================= -->
+  <main class="app">
 
-        <div class="sidebar-header">
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
 
-          <div>
-            <h2>People</h2>
-            <p>Find someone to chat with</p>
-          </div>
-
-        </div>
-
-
-        <!-- Search -->
-
-        <div class="search-wrapper">
-
-          <label
-            class="sr-only"
-            for="search"
-          >
-            Search people
-          </label>
-
-          <span
-            class="search-icon"
-            aria-hidden="true"
-          >
-            🔎
-          </span>
-
-          <input
-            id="search"
-            type="search"
-            placeholder="Search people"
-            autocomplete="off"
-            spellcheck="false"
-            maxlength="100"
-          >
-
-        </div>
-
-
-        <!-- Safety reminder -->
-
-        <div class="safety-reminder">
-
-          <span
-            class="safety-icon"
-            aria-hidden="true"
-          >
-            🛡️
-          </span>
-
-          <div>
-            <strong>Stay safe</strong>
-            <p>
-              Never share passwords, addresses, phone numbers
-              or private contact details.
-            </p>
-          </div>
-
-        </div>
-
-
-        <!-- Private Chat -->
-
-        <section
-          class="private-chat-card"
-          aria-label="Private Chat"
-        >
-
-          <div class="private-chat-info">
-
-            <div
-              class="private-chat-icon"
-              aria-hidden="true"
-            >
-              🔒
-            </div>
-
-            <div>
-              <strong>Private Chat</strong>
-
-              <span
-                id="privateChatStatus"
-                class="private-chat-status"
-              >
-                Locked
-              </span>
-            </div>
-
-          </div>
-
-          <button
-            id="privateChatBtn"
-            class="secondary-button small"
-            type="button"
-          >
-            🔒 Open
-          </button>
-
-        </section>
-
-
-        <!-- People list -->
-
-        <div
-          id="users"
-          class="people-list"
-          aria-label="People list"
-        >
-
-          <div class="people-loading">
-            <div class="loading-spinner"></div>
-            <span>Loading people…</span>
-          </div>
-
-        </div>
-
-      </aside>
-
-
-      <!-- =====================================================
-           CHAT PANEL
-           ===================================================== -->
-
-      <section
-        class="chat-panel"
-        aria-label="Chat"
-      >
-
-        <!-- Chat header -->
-
-        <header class="chat-header">
-
-          <div class="chat-person">
-
-            <button
-              id="chatAvatar"
-              class="chat-avatar other"
-              type="button"
-              aria-label="View profile"
-              title="View profile"
-            >
-              ?
-            </button>
-
-            <div class="chat-person-info">
-
-              <h2 id="chatName">
-                Select a person
-              </h2>
-
-              <p
-                id="status"
-                class="chat-status"
-              >
-                Choose someone from the list
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div class="chat-actions">
-
-            <button
-              id="addFriend"
-              class="chat-action friend-action"
-              type="button"
-              disabled
-            >
-              ❤️ Add Friend
-            </button>
-
-            <button
-              id="block"
-              class="chat-action"
-              type="button"
-              disabled
-            >
-              🚫 Block
-            </button>
-
-            <button
-              id="report"
-              class="chat-action danger-action"
-              type="button"
-              disabled
-            >
-              ⚑ Report
-            </button>
-
-          </div>
-
-        </header>
-
-
-        <!-- Messages -->
-
-        <div
-          id="messages"
-          class="messages"
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions"
-        >
-
-          <div class="welcome">
-
-            <div
-              class="welcome-logo"
-              aria-hidden="true"
-            >
-              Q1
-            </div>
-
-            <h2>Welcome to Q1 Chat</h2>
-
-            <p>
-              Select a person from the left to start chatting.
-            </p>
-
-            <div class="welcome-tip">
-              🛡️ Keep conversations respectful and safe.
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <!-- ===================================================
-             COMPOSER
-             =================================================== -->
-
-        <footer class="composer">
-
-          <div class="composer-tools">
-
-            <button
-              id="photoBtn"
-              class="composer-tool"
-              type="button"
-              title="Send photo"
-              aria-label="Send photo"
-              disabled
-            >
-              📷
-            </button>
-
-            <button
-              id="videoBtn"
-              class="composer-tool"
-              type="button"
-              title="Send video"
-              aria-label="Send video"
-              disabled
-            >
-              🎥
-            </button>
-
-            <button
-              id="linkBtn"
-              class="composer-tool"
-              type="button"
-              title="Send link"
-              aria-label="Send link"
-              disabled
-            >
-              🔗
-            </button>
-
-            <input
-              id="photoInput"
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              hidden
-            >
-
-            <input
-              id="videoInput"
-              type="file"
-              accept="video/mp4,video/webm,video/quicktime"
-              hidden
-            >
-
-          </div>
-
-
-          <div class="composer-main">
-
-            <label
-              class="sr-only"
-              for="input"
-            >
-              Message
-            </label>
-
-            <textarea
-              id="input"
-              rows="1"
-              maxlength="2000"
-              placeholder="Write a message…"
-              autocomplete="off"
-              spellcheck="true"
-              disabled
-            ></textarea>
-
-            <div class="composer-bottom">
-
-              <span
-                id="charCount"
-                class="char-count"
-              >
-                0/2000
-              </span>
-
-              <span class="composer-hint">
-                Enter to send • Shift+Enter for new line
-              </span>
-
-            </div>
-
-          </div>
-
-
-          <button
-            id="send"
-            class="send-button"
-            type="button"
-            disabled
-          >
-            <span>Send</span>
-            <span aria-hidden="true">➤</span>
-          </button>
-
-        </footer>
-
-      </section>
-
-    </main>
-
-  </div>
-
-
-  <!-- =========================================================
-       SETTINGS DIALOG
-       ========================================================= -->
-
-  <dialog
-    id="settings"
-    class="q1-dialog settings-dialog"
-  >
-
-    <div class="dialog-card">
-
-      <header class="dialog-header">
-
+      <div class="sidebar-header">
         <div>
-          <h2>Settings</h2>
-          <p>Manage your Q1 Chat profile</p>
+          <h2>People</h2>
+          <span id="userCount">0 people</span>
+        </div>
+        <div class="people-icon">👥</div>
+      </div>
+
+      <!-- SEARCH -->
+      <div class="search-box">
+        <span>🔎</span>
+        <input id="search" type="search" placeholder="Search people..." maxlength="50" autocomplete="off" aria-label="Search users">
+      </div>
+
+      <!-- SAFETY -->
+      <div class="safety-card">
+        <div class="safety-icon">🛡️</div>
+        <div>
+          <strong>Stay safe</strong>
+          <p>Never share passwords, addresses, phone numbers or private contact details.</p>
+        </div>
+      </div>
+
+      <!-- PRIVATE CHAT -->
+      <div class="private-chat-card">
+        <div class="private-chat-icon">🔐</div>
+        <div class="private-chat-info">
+          <strong>Private Chat</strong>
+          <span id="privateChatStatus">Locked</span>
+        </div>
+        <button id="privateChatBtn" type="button" class="secondary-btn">🔒 Open</button>
+      </div>
+
+      <!-- USERS -->
+      <div id="users" class="users-list" aria-live="polite"></div>
+
+    </aside>
+
+
+    <!-- ================= CHAT ================= -->
+    <section class="chat">
+
+      <!-- CHAT HEADER -->
+      <div class="chat-header">
+
+        <div class="chat-person">
+          <button id="chatAvatar" class="chat-avatar" type="button" aria-label="Open profile">?</button>
+
+          <div class="chat-person-text">
+            <strong id="chatName">Select a person</strong>
+            <span id="status">Choose someone from the list</span>
+          </div>
         </div>
 
-        <button
-          id="closeSettings"
-          class="dialog-close"
-          type="button"
-          aria-label="Close settings"
-        >
-          ×
-        </button>
-
-      </header>
-
-
-      <div class="dialog-body">
-
-        <!-- Profile -->
-
-        <section class="settings-section">
-
-          <div class="section-title">
-            <h3>Profile</h3>
-            <p>Your public profile information</p>
-          </div>
-
-
-          <div class="profile-photo-row">
-
-            <button
-              id="myProfileAvatar"
-              class="settings-avatar other"
-              type="button"
-              aria-label="Profile photo"
-            >
-              Q
-            </button>
-
-            <div class="profile-photo-info">
-
-              <strong>Profile photo</strong>
-
-              <p>
-                Choose a photo that other people can see.
-              </p>
-
-              <button
-                id="profilePhotoBtn"
-                class="secondary-button"
-                type="button"
-              >
-                Change photo
-              </button>
-
-              <input
-                id="profilePhotoInput"
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                hidden
-              >
-
-            </div>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="displayName">
-              Display name
-            </label>
-
-            <input
-              id="displayName"
-              type="text"
-              maxlength="40"
-              placeholder="Your display name"
-              autocomplete="name"
-            >
-
-            <small>
-              Your username is generated automatically and remains unique.
-            </small>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="gender">
-              Gender / preference
-            </label>
-
-            <select id="gender">
-
-              <option value="other">
-                Prefer not to specify
-              </option>
-
-              <option value="boy">
-                Boy
-              </option>
-
-              <option value="girl">
-                Girl
-              </option>
-
-            </select>
-
-          </div>
-
-        </section>
-
-
-        <!-- Private Chat -->
-
-        <section class="settings-section settings-option">
-
-          <div>
-
-            <h3>Private Chat</h3>
-
-            <p>
-              Protect Private Chat with a 4–6 digit PIN.
-              The PIN is stored as a hash, not plain text.
-            </p>
-
-            <span
-              id="privateChatStatus"
-              class="settings-status"
-            >
-              Locked
-            </span>
-
-          </div>
-
-          <button
-            id="privateChatSettings"
-            class="secondary-button"
-            type="button"
-          >
-            🔒 Setup
-          </button>
-
-        </section>
-
-
-        <!-- Blocked Users -->
-
-        <section class="settings-section settings-option">
-
-          <div>
-
-            <h3>Blocked Users</h3>
-
-            <p>
-              Manage people you have blocked.
-            </p>
-
-          </div>
-
-          <button
-            id="blocked"
-            class="secondary-button"
-            type="button"
-          >
-            Manage
-          </button>
-
-        </section>
-
-
-        <!-- Theme -->
-
-        <section class="settings-section settings-option">
-
-          <div>
-
-            <h3>Theme</h3>
-
-            <p>
-              Switch between light and dark mode.
-            </p>
-
-          </div>
-
-          <button
-            id="themeToggle"
-            class="secondary-button"
-            type="button"
-          >
-            🌙 Dark mode
-          </button>
-
-        </section>
+        <div class="chat-actions">
+          <button id="addFriend" type="button" disabled>❤️ Add Friend</button>
+          <button id="block" type="button" disabled>🚫 Block</button>
+          <button id="report" type="button" disabled>⚑ Report</button>
+        </div>
 
       </div>
 
+      <!-- ================= MESSAGES ================= -->
+      <div id="messages" class="messages" aria-live="polite" aria-label="Messages">
+        <div class="welcome">
+          <div class="welcome-logo">Q1</div>
+          <h2>Welcome to Q1 Chat</h2>
+          <p>Select a person from the left to start chatting.</p>
+          <div class="welcome-tip">🛡️ Keep conversations respectful and safe.</div>
+        </div>
+      </div>
 
-      <footer class="dialog-footer">
+      <!-- ================= COMPOSER ================= -->
+      <div class="composer">
 
-        <button
-          id="save"
-          class="primary-button"
-          type="button"
-        >
-          Save settings
+        <div class="composer-main">
+
+          <div class="attachment-buttons">
+            <button id="photoBtn" type="button" title="Send photo" aria-label="Send photo">📷</button>
+            <button id="videoBtn" type="button" title="Send video" aria-label="Send video">🎥</button>
+            <button id="linkBtn" type="button" title="Send link" aria-label="Send link">🔗</button>
+            <input id="photoInput" type="file" accept="image/*" hidden>
+            <input id="videoInput" type="file" accept="video/*" hidden>
+          </div>
+
+          <textarea id="input" disabled rows="1" maxlength="2000" placeholder="Write a message..." autocomplete="off" aria-label="Write a message"></textarea>
+
+          <div class="composer-info">
+            <span>🔒 Safe chat</span>
+            <span id="charCount">0/2000</span>
+          </div>
+
+        </div>
+
+        <button id="send" class="send-btn" type="button" disabled>
+          <span>Send</span>
+          <span>➤</span>
         </button>
 
-      </footer>
+      </div>
 
+    </section>
+
+  </main>
+
+
+  <!-- ================= SETTINGS ================= -->
+  <dialog id="settings" class="modal">
+
+    <div class="modal-header">
+      <div>
+        <span class="modal-icon">⚙️</span>
+        <h3>Settings</h3>
+        <p>Customize your Q1 Chat profile.</p>
+      </div>
+      <button id="closeSettings" class="close-btn" type="button">×</button>
+    </div>
+
+    <!-- PROFILE PHOTO -->
+    <div class="profile-photo-section">
+      <div id="myProfileAvatar" class="settings-avatar">Q</div>
+      <div>
+        <strong>Profile photo</strong>
+        <p>Add a profile picture for your account.</p>
+        <button id="profilePhotoBtn" class="secondary-btn" type="button">📷 Add / Change Photo</button>
+        <input id="profilePhotoInput" type="file" accept="image/*" hidden>
+      </div>
+    </div>
+
+    <!-- DISPLAY NAME -->
+    <div class="form-group">
+      <label for="displayName">Display name</label>
+      <input id="displayName" type="text" maxlength="40" placeholder="Enter your name" autocomplete="nickname">
+    </div>
+
+    <!-- GENDER -->
+    <div class="form-group">
+      <label for="gender">Gender</label>
+      <select id="gender">
+        <option value="boy">Boy</option>
+        <option value="girl">Girl</option>
+        <option value="other">Prefer not to say</option>
+      </select>
+    </div>
+
+    <!-- PRIVATE CHAT -->
+    <div class="settings-section">
+      <div class="setting-row">
+        <div>
+          <strong>🔐 Private Chat</strong>
+          <p>Lock private conversations behind a PIN.</p>
+        </div>
+        <button id="privateChatSettings" class="secondary-btn" type="button">🔒 Setup</button>
+      </div>
+    </div>
+
+    <!-- OTHER SETTINGS -->
+    <div class="settings-section">
+      <button id="blocked" class="secondary-btn" type="button">🚫 Blocked Users</button>
+      <button id="themeToggle" class="secondary-btn" type="button">🌙 Dark mode</button>
+    </div>
+
+    <button id="save" class="primary-btn" type="button">Save settings</button>
+
+    <div class="settings-safe">
+      🛡️ Q1 Chat safety reminder: don't share private information.
     </div>
 
   </dialog>
 
 
-  <!-- =========================================================
-       PRIVATE CHAT DIALOG
-       ========================================================= -->
+  <!-- ================= PRIVATE CHAT LOCK ================= -->
+  <dialog id="privateChatDialog" class="modal">
 
-  <dialog
-    id="privateChatDialog"
-    class="q1-dialog small-dialog"
-  >
-
-    <div class="dialog-card">
-
-      <header class="dialog-header">
-
-        <div>
-          <h2>🔒 Private Chat</h2>
-          <p>Enter your PIN to unlock</p>
-        </div>
-
-        <button
-          id="closePrivateChat"
-          class="dialog-close"
-          type="button"
-          aria-label="Close Private Chat"
-        >
-          ×
-        </button>
-
-      </header>
-
-
-      <div class="dialog-body">
-
-        <div class="private-lock-visual">
-          🔐
-        </div>
-
-        <p class="dialog-description">
-          Private Chat is locked for this page session.
-          Enter your PIN to continue.
-        </p>
-
-        <div class="form-group">
-
-          <label for="privateChatPin">
-            Private Chat PIN
-          </label>
-
-          <input
-            id="privateChatPin"
-            type="password"
-            inputmode="numeric"
-            autocomplete="off"
-            minlength="4"
-            maxlength="6"
-            pattern="[0-9]{4,6}"
-            placeholder="••••••"
-          >
-
-          <small>
-            Your PIN must contain 4–6 digits.
-          </small>
-
-        </div>
-
+    <div class="modal-header">
+      <div>
+        <span class="modal-icon">🔐</span>
+        <h3>Private Chat</h3>
+        <p>Enter your PIN to unlock private chat.</p>
       </div>
+      <button id="closePrivateChat" class="close-btn" type="button">×</button>
+    </div>
+
+    <div class="form-group">
+      <label for="privateChatPin">PIN</label>
+      <input id="privateChatPin" type="password" inputmode="numeric" maxlength="6" placeholder="Enter PIN" autocomplete="off">
+    </div>
+
+    <button id="unlockPrivateChat" class="primary-btn" type="button">🔓 Unlock</button>
+
+  </dialog>
 
 
-      <footer class="dialog-footer">
+  <!-- ================= BLOCKED USERS ================= -->
+  <dialog id="blockedDialog" class="modal">
 
-        <button
-          id="unlockPrivateChat"
-          class="primary-button"
-          type="button"
-        >
-          🔓 Unlock
-        </button>
+    <div class="modal-header">
+      <div>
+        <span class="modal-icon">🚫</span>
+        <h3>Blocked Users</h3>
+        <p>Manage people you have blocked.</p>
+      </div>
+      <button id="closeBlocked" class="close-btn" type="button">×</button>
+    </div>
 
-      </footer>
-
+    <div id="blockedList" class="blocked-list">
+      <div class="empty-blocked">No blocked users.</div>
     </div>
 
   </dialog>
 
 
-  <!-- =========================================================
-       BLOCKED USERS DIALOG
-       ========================================================= -->
-
-  <dialog
-    id="blockedDialog"
-    class="q1-dialog"
-  >
-
-    <div class="dialog-card">
-
-      <header class="dialog-header">
-
-        <div>
-          <h2>Blocked Users</h2>
-          <p>People you have blocked</p>
-        </div>
-
-        <button
-          id="closeBlocked"
-          class="dialog-close"
-          type="button"
-          aria-label="Close blocked users"
-        >
-          ×
-        </button>
-
-      </header>
-
-
-      <div
-        id="blockedList"
-        class="blocked-list"
-      >
-
-        <div class="empty-blocked">
-          No blocked users.
-        </div>
-
-      </div>
-
-    </div>
-
+  <!-- ================= PROFILE ================= -->
+  <dialog id="profileDialog" class="modal profile-modal">
+    <button id="closeProfile" class="close-btn profile-close" type="button">×</button>
+    <div id="profileContent"></div>
   </dialog>
 
 
-  <!-- =========================================================
-       PROFILE DIALOG
-       ========================================================= -->
-
-  <dialog
-    id="profileDialog"
-    class="q1-dialog small-dialog"
-  >
-
-    <div class="dialog-card">
-
-      <header class="dialog-header">
-
-        <div>
-          <h2>Profile</h2>
-          <p>About this person</p>
-        </div>
-
-        <button
-          id="closeProfile"
-          class="dialog-close"
-          type="button"
-          aria-label="Close profile"
-        >
-          ×
-        </button>
-
-      </header>
-
-
-      <div
-        id="profileContent"
-        class="profile-content"
-      >
-
-        <div class="profile-loading">
-          Select a profile to view details.
-        </div>
-
-      </div>
-
-    </div>
-
-  </dialog>
-
+  <!-- ================= SUPABASE & APP ================= -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
 
 </body>
 </html>
